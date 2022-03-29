@@ -58,12 +58,12 @@ For example: path+'/2011/01/goes13.YYYY.DDD.*.nc'
 # ************************************************************************************
 # Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
 # only the grid size and the edge's latitudes and longitudes are required:
-nx      = 80                        # number of gridcells in x
-ny      = 106                       # number of gridcells in y
-Slat    = -2.5                      # southern latitude
-Nlat    = 12.75                     # northern latitude
-Wlon    = -80                       # western longitude
-Elon    = -68.5                     # eastern longitude
+nx      = 64                        # number of gridcells in x
+ny      = 80                       # number of gridcells in y
+Slat    = -4.5                      # southern latitude
+Nlat    = 7                     # northern latitude
+Wlon    = -76                       # western longitude
+Elon    = -66.8                     # eastern longitude
 
 
 # ************************************************************************************
@@ -71,7 +71,7 @@ Elon    = -68.5                     # eastern longitude
 mask=np.ones([nx,ny]) # this means no mask (entire grid is used)
 
 # If mask is needed, set masked gridboxes to zero. For example:
-#mask[0,:]=0
+mask[0,-1]=0
 #mask[1,0]=mask[1,8:]=0
 #mask[2,0]=mask[2,10:]=0
 #mask[3,:5]=mask[3,14:]=0
@@ -95,6 +95,9 @@ mask=np.ones([nx,ny]) # this means no mask (entire grid is used)
 # create Grid object:
 area=grid.Grid( Slat, Elon, Nlat, Wlon, nx=nx, ny=ny, ER=Ea_r, UTC=UTC )
 area.create_mask(mask)
+#*************************************************************************************
+# plot the grid on a map to visualize it:
+area.plot_area(path='/media/Drive/GOES/', lllat=Slat-0.5, urlat=Nlat+0.5,lllon=Wlon-0.5,urlon=Elon+0.5)
 
 print("Will now create a folder named 'CONVECTION_"+case_name+"' where all files will be saved.\n")
 folder='CONVECTION_'+case_name

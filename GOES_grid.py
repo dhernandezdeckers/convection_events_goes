@@ -235,6 +235,67 @@ class Grid(object):
         else:
             return None, None, None, None, None, False
 
+    def plot_area(self, path, fname=None,lllat=4,urlat=5.5,lllon=-75,urlon=-73.25,topo=True, drawgrid=True, dlatlon=0.25, plot_grid=True):
+        import matplotlib.pyplot as plt
+        import cartopy.crs as ccrs
+        import cartopy.feature
+   
+        fig=plt.figure(figsize=(7.5,9))
+        projection = ccrs.LambertCylindrical(central_longitude=-75)#ccrs.LambertConformal(central_latitude=5, central_longitude=-75)
+        ax = plt.axes( [0.08,0.05,0.9,0.9], projection=projection )
+        lrlon=urlon
+        ullon=lllon
+        lrlat=lllat
+        extent = [ullon,lrlon,lrlat,urlat]
+        ax.set_extent(extent)
+        rivers = cartopy.feature.NaturalEarthFeature(
+                category='physical', name='rivers_lake_centerlines',
+                scale='10m', facecolor='none', edgecolor='cornflowerblue')
+        ax.add_feature(rivers, linewidth=1)
+        limites_int = cartopy.feature.NaturalEarthFeature(
+        category='cultural',
+        name='admin_0_countries',
+        scale='10m',
+        facecolor='none')
+        ax.add_feature(limites_int, edgecolor='k',linewidth=0.3, linestyle='-')
+
+        if drawgrid:
+            gl=ax.gridlines(draw_labels=True, ylocs=np.arange(-2,13,2),x_inline=False, y_inline=False)
+            gl.right_labels=False
+            gl.top_labels=False
+        if topo:
+            #plot background topographic map
+            from netCDF4 import Dataset 
+            topo = path+'GMRTv3_6_20190507topo.grd'
+            var2 = Dataset(topo, mode='r')
+            xtopo=np.arange(var2.variables['x_range'][0],var2.variables['x_range'][1]+0.5*var2.variables['spacing'][0],var2.variables['spacing'][0])
+            ytopo=np.arange(var2.variables['y_range'][0],var2.variables['y_range'][1]+0.5*var2.variables['spacing'][1],var2.variables['spacing'][1])
+            z=var2.variables['z'][:]
+            xx,yy=np.meshgrid(xtopo,ytopo)
+            ret = ax.projection.transform_points(ccrs.PlateCarree(), xx, yy)
+            xt = ret[..., 0]
+            yt = ret[..., 1]
+            z=np.reshape(z,xt.shape)[::-1,:]
+            terrain_cmap()
+            cs=plt.contourf(xt,yt,z,cmap='terrain_map',levels=np.arange(0,5900,100))
+            cbar = plt.colorbar(cs,orientation='vertical',pad=0.05,label='elev. (m)',shrink=0.6)#,ticks=[-0.12,-0.08,-0.04,0,0.04,0.08,0.12])
+            cbar.ax.tick_params(labelsize=12)
+
+        if plot_grid:
+            for i in range(self.nx+1):
+                plt.plot(self.lon_corners[i,:],self.lat_corners[i,:],lw=0.5,c='b',zorder=11,transform=ccrs.PlateCarree())
+            for j in range(self.ny+1):
+                plt.plot(self.lon_corners[:,j],self.lat_corners[:,j],lw=0.5,c='b',zorder=11,transform=ccrs.PlateCarree())
+            if np.any(self.mask==0):
+                for i in range(self.nx):
+                    for j in range(self.ny):
+                        if self.mask[i,j]==0:
+                            plt.scatter(self.lon_centers[i,j],self.lat_centers[i,j],marker='x',c='k',s=10, transform=ccrs.PlateCarree())
+        if fname!=None:
+            plt.savefig(fname)
+        else:
+            plt.show()
+
             
 def is_in_box(P1,P2,P3,P4):
     """
@@ -305,5 +366,14 @@ def read_job(area,lons,lats,img,date,times):
             T_grid.append(T_gridtemp)
             time.append([timestamp.year,timestamp.month,timestamp.day,timestamp.hour,timestamp.minute,timestamp.second])
     return np.asarray(T_grid), np.asarray(time)
+
+def terrain_cmap():
+    #modify matplotlib's 'terrain' colormap to make it better
+    import matplotlib.pyplot as plt
+    import matplotlib.colors
+    colors_land = plt.cm.terrain(np.linspace(0.3, 1, 200))
+    colors=colors_land
+    terrain_map = matplotlib.colors.LinearSegmentedColormap.from_list('terrain_map', colors)
+    plt.register_cmap(cmap=terrain_map)
 
 
