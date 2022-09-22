@@ -5,7 +5,8 @@ import pdb
 
 
 class Grid(object):
-    def __init__( self, Slat, Elon, Nlat, Wlon, nx, ny, ER=6378, UTC=-5 ):
+    def __init__( self, Slat, Elon, Nlat, Wlon, nx, ny, ER=6378, UTC=-5, case_name='' ):
+        self.case_name = case_name
         self.njobs  = 1         # Number of jobs to parallelize the gridding of the data (set to 1 now because parallelization is done elsewhere - faster)
         self.lrlon  = Elon
         self.lrlat  = Slat
@@ -235,7 +236,7 @@ class Grid(object):
         else:
             return None, None, None, None, None, False
 
-    def plot_area(self, path, fname=None,lllat=4,urlat=5.5,lllon=-75,urlon=-73.25,topo=True, drawgrid=True, dlatlon=0.25, plot_grid=True):
+    def plot_area(self, path='./', fname=None, lllat=4,urlat=5.5,lllon=-75,urlon=-73.25,topo=True, drawgrid=True, dlatlon=0.25, plot_grid=True):
         import matplotlib.pyplot as plt
         import cartopy.crs as ccrs
         import cartopy.feature
@@ -266,7 +267,7 @@ class Grid(object):
         if topo:
             #plot background topographic map
             from netCDF4 import Dataset 
-            topo = path+'GMRTv3_6_20190507topo.grd'
+            topo = path+'GMRTv4_0_20220922topo.grd'
             var2 = Dataset(topo, mode='r')
             xtopo=np.arange(var2.variables['x_range'][0],var2.variables['x_range'][1]+0.5*var2.variables['spacing'][0],var2.variables['spacing'][0])
             ytopo=np.arange(var2.variables['y_range'][0],var2.variables['y_range'][1]+0.5*var2.variables['spacing'][1],var2.variables['spacing'][1])
@@ -293,8 +294,7 @@ class Grid(object):
                             plt.scatter(self.lon_centers[i,j],self.lat_centers[i,j],marker='x',c='k',s=10, transform=ccrs.PlateCarree())
         if fname!=None:
             plt.savefig(fname)
-        else:
-            plt.show()
+        plt.show()
 
             
 def is_in_box(P1,P2,P3,P4):

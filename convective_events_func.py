@@ -380,13 +380,30 @@ def plot_image_cartopy( area, ax, T, time=[2011,1,1,0,0], cmap='Greys', vmin=200
         gl.bottom_labels = False
     if (not labelslat):
         gl.left_labels=False
+    if topo:
+        try:
+            from netCDF4 import Dataset
+            topo = './GMRTv4_0_20220922topo.grd'
+            var2 = Dataset(topo, mode='r')
+            xtopo=np.arange(var2.variables['x_range'][0],var2.variables['x_range'][1]+0.5*var2.variables['spacing'][0],var2.variables['spacing'][0])
+            ytopo=np.arange(var2.variables['y_range'][0],var2.variables['y_range'][1]+0.5*var2.variables['spacing'][1],var2.variables['spacing'][1])
+            z=var2.variables['z'][:]
+            xt,yt=np.meshgrid(xtopo,ytopo)
+            z=np.reshape(z,xt.shape)[::-1,:]
+            ret = ax.projection.transform_points(ccrs.PlateCarree(), xt, yt)
+            xx = ret[..., 0]
+            yy = ret[..., 1]
+            #ax.contour(xx, yy, z,levels=np.arange(500,5100,1000), colors='0.2', linewidths=0.3, zorder=3)
+            ax.contour(xx, yy, z,levels=[250,1000,2000,3000,4000,5000], colors='0.2', linewidths=0.3, zorder=3)
+        except:
+            print('Could not find elevation data to plot topography')
     ## rivers:
     rios = cfeature.NaturalEarthFeature(
         category='physical',
         name='rivers_lake_centerlines',
         scale='10m',
         facecolor='none' )
-    ax.add_feature(rios, edgecolor='k', linewidth=0.2 )
+    ax.add_feature(rios, edgecolor='gray', linewidth=0.2 )
     # borders:
     limites_int = cfeature.NaturalEarthFeature(
         category='cultural',

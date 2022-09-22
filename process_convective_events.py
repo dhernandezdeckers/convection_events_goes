@@ -72,10 +72,10 @@ print_areas = False
 max_sizekm2 = 300000    # convective systems larger than this will be discarded for some analyses
 
 # coordinate limits for plots:
-lllat = -4.2
-urlat = 6.7
-lllon = -75.7
-urlon = -67.1
+lllat = -4.5
+urlat = 7
+lllon = -76
+urlon = -66.8
 
 
 boxes=[[-78.2,-77.5,3.5,4.25],
@@ -154,19 +154,19 @@ time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny
 fig=plt.figure(figsize=(14,5.9))
 gs = gridspec.GridSpec(1, 4, left=0.035, right=0.99, hspace=0.2, wspace=0.05, top=0.99, bottom=0.13)
 ax = subplot(gs[0],projection=ccrs.Mercator(central_longitude=-75))
-cs=plot_image_cartopy(area,ax,N_events_total_Tmin[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+cs=plot_image_cartopy(area,ax,N_events_total_Tmin[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
 ax = subplot(gs[1],projection=ccrs.Mercator(central_longitude=-75))
 N_events3_smooth = gaussian_filter(N_events_wTRMM, sigma=1, mode='reflect', cval=0.0 )
 N_events3_smooth[-2,:]=np.nan
 N_events3_smooth[:,1]=np.nan
-cs=plot_image_cartopy(area, ax, N_events3_smooth[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=0.275, ticks=np.arange(0,0.4,0.1), cmap='afmhot_r',label='event rate density (Tmin location)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='b)',labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+cs=plot_image_cartopy(area, ax, N_events3_smooth[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=0.275, ticks=np.arange(0,0.4,0.1), cmap='afmhot_r',label='event rate density (Tmin location)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='b)',labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
 #ax = subplot(gs[2])
 ax = subplot(gs[2],projection=ccrs.Mercator(central_longitude=-75))
 ssize_smooth = gaussian_filter(mean_ssize_minBTpeak, sigma=2, mode='reflect', cval=0.0 )
-plot_image_cartopy(area, ax, ssize_smooth*1e-3, vmin=0, vmax=38, cmap='afmhot_r', label='mean event size (x10$^3$km$^2$))', remove_borders=True, ticks=[0,10,20,30],title='c)',logscale=False, labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+plot_image_cartopy(area, ax, ssize_smooth*1e-3, vmin=0, vmax=38, cmap='afmhot_r', label='mean event size (x10$^3$km$^2$))', remove_borders=True, ticks=[0,10,20,30],title='c)',logscale=False, labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
 ax = subplot(gs[3],projection=ccrs.Mercator(central_longitude=-75))
 sdur_smooth = gaussian_filter(mean_sdur_minBTpeak, sigma=2, mode='reflect', cval=0.0 )
-plot_image_cartopy(area, ax, sdur_smooth, vmin=0, vmax=6, cmap='afmhot_r', label='mean event duration (h)', remove_borders=True, ticks=[0,1,2,3,4,5,6],title='d)',logscale=False, labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+plot_image_cartopy(area, ax, sdur_smooth, vmin=0, vmax=6, cmap='afmhot_r', label='mean event duration (h)', remove_borders=True, ticks=[0,1,2,3,4,5,6],title='d)',logscale=False, labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)    
 plt.savefig(folder+'/Fig1.png',dpi=300)
 
 print('Number of events regardless of precipitation is %d'%(np.nansum(N_events)))
@@ -223,7 +223,7 @@ for i in range(len(boxes)):
 fig.text(0.56, 0.5, 'Number of events ($\\times10$)', va='center', rotation='vertical',fontsize=16)
 fig.text(0.78, 0.97, 'c)', va='center', rotation='horizontal',fontsize=16)
 ax = fig.add_subplot(gs[0:11,0],projection=ccrs.PlateCarree())
-plot_image_cartopy(area, ax, H_max, vmin=0, vmax=24, ticks=np.arange(0,25,2),cmap='twilight_shifted',label='local time of max. ocurrence (h)', remove_borders=True, extend='neither',title='a)',boxes=boxes,boxescolor=bcolors,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+plot_image_cartopy(area, ax, H_max, vmin=0, vmax=24, ticks=np.arange(0,25,2),cmap='twilight_shifted',label='local time of max. ocurrence (h)', remove_borders=True, extend='neither',title='a)',boxes=boxes,boxescolor=bcolors,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
 morning=np.where(H_max<12)
 ax.scatter(area.lon_centers[morning],area.lat_centers[morning],transform=ccrs.PlateCarree(),marker='o',s=1,c='w',edgecolor='none')
 ax.annotate('.......................................',xy=(0.03,-0.07),xycoords='axes fraction',zorder=10,fontsize=9,color='w')
@@ -235,7 +235,7 @@ lons=np.arange(-180,180.05,0.1)
 lats=np.arange(-38,38.05,0.1)
 loncorners,latcorners=np.meshgrid(lons,lats)
 ax = fig.add_subplot(gs[0:11,1],projection=ccrs.PlateCarree())
-plot_image_cartopy(area, ax, LIS, vmin=0, vmax=150, cmap='afmhot_r', label='FRD (fl km$^{-2}$yr$^{-1}$)', remove_borders=True, title='b)', ticks=np.arange(0,151,25),loncorners=[loncorners],latcorners=[latcorners],labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+plot_image_cartopy(area, ax, LIS, vmin=0, vmax=150, cmap='afmhot_r', label='FRD (fl km$^{-2}$yr$^{-1}$)', remove_borders=True, title='b)', ticks=np.arange(0,151,25),loncorners=[loncorners],latcorners=[latcorners],labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
 
 plt.savefig(folder+'/Fig5.png',dpi=300)
 #plt.savefig('hourly_events_nxny%d%d_Tmin%d_T2min%d.png'%(nx,ny,T_min,T_min2),dpi=300)
@@ -276,7 +276,7 @@ VM=19
 for i in range(24):
     fig = plt.figure(figsize=(4.1,6))
     ax = fig.add_subplot(1,1,1,projection=ccrs.PlateCarree())
-    cs = plot_image_cartopy(area,ax,N_events_hh[i,:,:]*10/(time_factor_hh[i]*(7./24.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,4), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title='%02d:00-%02d:00'%(i,i+1),lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon) 
+    cs = plot_image_cartopy(area,ax,N_events_hh[i,:,:]*10/(time_factor_hh[i]*(7./24.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,4), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title='%02d:00-%02d:00'%(i,i+1),lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) 
     plt.tight_layout()
     plt.savefig(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_hh%02d.png'%(nx,ny,T_minmin,T_min,i),dpi=300)
     plt.close()
@@ -345,7 +345,7 @@ for i in range(12):
     else:
         labelslon=False
     N_events_h_smooth = N_events_h2[i,:,:]
-    cs = plot_image_cartopy(area,ax,N_events_h_smooth*10/(np.mean(time_factor_hh2[i])*(7./12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM+0.01,2), cmap='afmhot_r',cb=False,label='',remove_borders=True, title=hours[i],labelslon=labelslon,labelslat=labelslat,fslonlat=10,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+    cs = plot_image_cartopy(area,ax,N_events_h_smooth*10/(np.mean(time_factor_hh2[i])*(7./12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM+0.01,2), cmap='afmhot_r',cb=False,label='',remove_borders=True, title=hours[i],labelslon=labelslon,labelslat=labelslat,fslonlat=10,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
 cax = subplot(gs[0:2,6])
 cax.set_position([0.94,0.2,0.01,0.6])
 cbar = plt.colorbar(cs, pad=-2, extend='max', ticks=np.arange(0,VM+0.01,5), orientation='vertical',cax=cax)
@@ -384,40 +384,39 @@ months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
 for i in range(12):
     fig = plt.figure(figsize=(4.1,6))
     ax = fig.add_subplot(1,1,1,projection=ccrs.PlateCarree())
-    cs = plot_image_cartopy(area,ax,N_events_mm[i,:,:]*10/((7/12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,2), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title=months[i],lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon)
+    cs = plot_image_cartopy(area,ax,N_events_mm[i,:,:]*10/((7/12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,2), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title=months[i],lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
     plt.tight_layout()
     plt.savefig(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm%02d.png'%(nx,ny,T_minmin,T_min,i+1),dpi=300)
     plt.close()
 os.system('convert -delay 40 '+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm*.png '%(nx,ny,T_minmin,T_min)+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm.gif'%(nx,ny,T_minmin,T_min))
 os.system('rm '+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm*.png'%(nx,ny,T_minmin,T_min))
 
-#if select_area in ['Y','y']:
-#    ## PLOT FREQUENCY OF EVENTS BY MONTH:
-#    fig=plt.figure(figsize=(13.,5.9))
-#    gs = gridspec.GridSpec(2, 7, left=0.03, right=0.95, hspace=0.2, wspace=0.005, top=0.95, bottom=0.05,width_ratios=[1,1,1,1,1,1,0.1])
-#    #gs = gridspec.GridSpec(1, 4, left=0.04, right=0.99, hspace=0.2, wspace=0.05, top=0.99, bottom=0.05)
-#    ind_plots=[0,1,2,3,4,5,7,8,9,10,11,12]
-#    month=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
-#    def plot_months():
-#        for i in range(12):
-#            ax = subplot(gs[ind_plots[i]],projection=ccrs.PlateCarree())
-#            if ind_plots[i] in [0,7]:
-#                labelslat=True
-#            else:
-#                labelslat=False
-#            if ind_plots[i]>6:
-#                labelslon=True
-#            else:
-#                labelslon=False
-#            cs = plot_image_cartopy(ax,N_events_mm[i,:,:]*10/((7/12.)*dx*dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,2), cmap='afmhot_r',cb=False,label='',remove_borders=True, title=month[i],labelslon=labelslon,labelslat=labelslat,fslonlat=10)
-#            #plt.annotate('%d'%(i+1),xy=(0.1,0.8),xycoors='axes fraction',fontsize=14)
-#    plot_months()
-#    cax = subplot(gs[0:2,6])
-#    cax.set_position([0.94,0.2,0.01,0.6])
-#    cbar = plt.colorbar(cs, pad=-2, extend='max', ticks=np.arange(0,VM,2), orientation='vertical',cax=cax)
-#    cbar.set_label(label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',size=12)
-#    cbar.ax.tick_params(labelsize=12)
-#    plt.savefig('HernandezD_Fig3.png',dpi=300)
+## PLOT FREQUENCY OF EVENTS BY MONTH:
+fig=plt.figure(figsize=(13.,5.9))
+gs = gridspec.GridSpec(2, 7, left=0.03, right=0.95, hspace=0.2, wspace=0.005, top=0.95, bottom=0.05,width_ratios=[1,1,1,1,1,1,0.1])
+#gs = gridspec.GridSpec(1, 4, left=0.04, right=0.99, hspace=0.2, wspace=0.05, top=0.99, bottom=0.05)
+ind_plots=[0,1,2,3,4,5,7,8,9,10,11,12]
+month=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec']
+def plot_months():
+    for i in range(12):
+        ax = subplot(gs[ind_plots[i]],projection=ccrs.PlateCarree())
+        if ind_plots[i] in [0,7]:
+            labelslat=True
+        else:
+            labelslat=False
+        if ind_plots[i]>6:
+            labelslon=True
+        else:
+            labelslon=False
+        cs = plot_image_cartopy(area,ax,N_events_mm[i,:,:]*10/((7/12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,2), cmap='afmhot_r',cb=False,label='',remove_borders=True, title=month[i],labelslon=labelslon,labelslat=labelslat,fslonlat=10,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
+        #plt.annotate('%d'%(i+1),xy=(0.1,0.8),xycoors='axes fraction',fontsize=14)
+plot_months()
+cax = subplot(gs[0:2,6])
+cax.set_position([0.94,0.2,0.01,0.6])
+cbar = plt.colorbar(cs, pad=-2, extend='max', ticks=np.arange(0,VM,2), orientation='vertical',cax=cax)
+cbar.set_label(label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',size=12)
+cbar.ax.tick_params(labelsize=12)
+plt.savefig(folder+'/Fig3.png',dpi=300)
 #    plt.savefig('N_events_total_nxny%d%d_Tmin%d_T2min%d_months.png'%(nx,ny,T_min,T_min2),dpi=300)
 
 #    fig=plt.figure(figsize=(14,5.9))
@@ -535,9 +534,9 @@ fig.text(0.56, 0.5, 'Number of events ($\\times10$)', va='center', rotation='ver
 fig.text(0.78, 0.97, 'c)', va='center', rotation='horizontal',fontsize=16)
 
 ax = fig.add_subplot(gs[0:11,0],projection=ccrs.PlateCarree())
-cs=plot_image_cartopy(area,ax,S0,vmin=0,vmax=2, ticks=np.arange(-5,6,1), cmap='binary',label='$S0$',remove_borders=False, extend='both',title='a)',boxes=boxes,boxescolor=['w'],lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+cs=plot_image_cartopy(area,ax,S0,vmin=0,vmax=2, ticks=np.arange(-5,6,1), cmap='binary',label='$S0$',remove_borders=False, extend='both',title='a)',boxes=boxes,boxescolor=['w'],lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
 ax=subplot(gs[0:11,1],projection=ccrs.Mercator(central_longitude=-75))
-cs=plot_image_cartopy(area,ax,S1,vmin=-2,vmax=2, ticks=np.arange(-5,6,1), cmap='coolwarm',label='$S1$',remove_borders=False, extend='both',title='b)',labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+cs=plot_image_cartopy(area,ax,S1,vmin=-2,vmax=2, ticks=np.arange(-5,6,1), cmap='coolwarm',label='$S1$',remove_borders=False, extend='both',title='b)',labelslat=False,lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
 low_S1=np.where(S1<0)
 ax.scatter(area.lon_centers[low_S1],area.lat_centers[low_S1],transform=ccrs.PlateCarree(),marker='o',s=1,c='k',edgecolor='none')
 ax.annotate('...................................',xy=(0.08,-0.07),xycoords='axes fraction',zorder=10,fontsize=9)
