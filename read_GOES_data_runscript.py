@@ -7,6 +7,8 @@ import pickle
 import pdb
 from joblib import Parallel, delayed
 import datetime as dt
+import matplotlib
+matplotlib.use('Agg')
 
 """
 This script is the first step for convective event identification based on IR data
@@ -122,10 +124,12 @@ while t <= tff:
     img =[]
     date=[]
     times=[]
+    goes_v=[] # goes version (13, 14 or 15)
     while t<=tff and counter<days_per_chunk:
-        ls_list=os.popen('ls '+ path + '%04d/%02d/goes13.%04d.%03d.'%(t.year,t.month,t.year,t.timetuple().tm_yday) + '*.nc').read().split() #one day
+        ls_list=os.popen('ls '+ path + '%04d/%02d/goes1?.%04d.%03d.'%(t.year,t.month,t.year,t.timetuple().tm_yday) + '*.nc').read().split() #one day
         for ifile in ls_list:
             try:
+                goes_v.append(ifile[-29:-27])
                 var=Dataset(ifile, mode='r')
                 lons.append(var.variables['lon'][:])
                 lats.append(var.variables['lat'][:])
@@ -146,9 +150,9 @@ while t <= tff:
         len_job=int(len(lons)/n_jobs)
     jobs=[]
     for i in range(n_jobs-1):
-        jobs.append([area,lons[i*len_job:(i+1)*len_job],lats[i*len_job:(i+1)*len_job],img[i*len_job:(i+1)*len_job],date[i*len_job:(i+1)*len_job],times[i*len_job:(i+1)*len_job]])
+        jobs.append([area,lons[i*len_job:(i+1)*len_job],lats[i*len_job:(i+1)*len_job],img[i*len_job:(i+1)*len_job],date[i*len_job:(i+1)*len_job],times[i*len_job:(i+1)*len_job],goes_v[i*len_job:(i+1)*len_job]])
     i=n_jobs-1
-    jobs.append([area,lons[i*len_job:],lats[i*len_job:],img[i*len_job:],date[i*len_job:],times[i*len_job:]])
+    jobs.append([area,lons[i*len_job:],lats[i*len_job:],img[i*len_job:],date[i*len_job:],times[i*len_job:],goes_v[i*len_job:]])
     out=Parallel(n_jobs=n_jobs)(delayed(read_job)(*jobs[i]) for i in range(len(jobs)))
     for i in range(n_jobs):
         T_grid.extend(out[i][0])
@@ -168,7 +172,7 @@ while i<T_grid.shape[0]:
     if deltat<0:
         i0=i-1
         while dt.datetime(*time[i])<=dt.datetime(*time[i0]):
-            print(i)
+            print(i,end='\r')
             i+=1
     T_grid2.append(T_grid[i])
     time2.append(time[i])

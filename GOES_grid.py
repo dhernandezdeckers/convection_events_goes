@@ -157,7 +157,7 @@ class Grid(object):
         date=var.variables['imageDate'][:]
         return img, lons, lats, date
 
-    def extract_and_grid_data(self,lons,lats,img,date,time):
+    def extract_and_grid_data(self,lons,lats,img,date,time,goes_version='13'):
         """
         slice the data to use only the region that contains the study area:
         """
@@ -173,7 +173,7 @@ class Grid(object):
                 
                 #*************************************************
                 # compute brightness temperature:
-                T_slice = get_T(img_slice)
+                T_slice = get_T(img_slice,goes_version=goes_version)
                 
                 #*************************************************
                 # mask all data points outside of the study area:
@@ -308,7 +308,7 @@ def is_in_box(P1,P2,P3,P4):
     else:
         return False
 
-def get_T(img):
+def get_T(img, goes_version='13'):
     """
     #****************************************************************************************
     # this function assumes GOES-13 band 4 (10.7um, detector 'a' (North?)) values of constants
@@ -331,8 +331,15 @@ def get_T(img):
 
     Teff= (c2*n)/np.log(1.+(c1*n*n*n)/rad)
     
-    a=-0.386043
-    b=1.001298
+    if goes_version=='13':
+        a=-0.386043
+        b=1.001298
+    elif goes_version=='14':
+        a=-0.2875616
+        b=1.001258
+    elif goes_version=='15':
+        a=-0.3433922
+        b=1.001259
     
     return a+b*Teff
 
@@ -357,11 +364,11 @@ def joblib_is_in_index(area,lons_slice,lats_slice,i0,i1,j0,j1,T_slice,slanted):
                         T_grid[lon0_ind[-1],lat0_ind[-1]]+=T_slice[i,j]
     return counter, T_grid
 
-def read_job(area,lons,lats,img,date,times):
+def read_job(area,lons,lats,img,date,times,goes_version):
     T_grid =[]
     time = []
     for i in range(len(lons)):
-        T_gridtemp, T_slice_maskedtemp, lons_slice, lats_slice, timestamp, valid = area.extract_and_grid_data(lons[i],lats[i],img[i],date[i],times[i])
+        T_gridtemp, T_slice_maskedtemp, lons_slice, lats_slice, timestamp, valid = area.extract_and_grid_data(lons[i],lats[i],img[i],date[i],times[i],goes_version[i])
         if valid:
             T_grid.append(T_gridtemp)
             time.append([timestamp.year,timestamp.month,timestamp.day,timestamp.hour,timestamp.minute,timestamp.second])

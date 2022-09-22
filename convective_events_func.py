@@ -352,18 +352,18 @@ def make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpea
     plot_image_cartopy(area, ax, sdur_smooth, vmin=0, vmax=6, cmap='afmhot_r', label='mean event duration (h)', remove_borders=True, ticks=[0,1,2,3,4,5,6],title='d)',logscale=False, labelslat=False, lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon)
     plt.savefig(folder+'/event_rate_density_size_duration.png',dpi=300)
 
-def plot_image_cartopy( area, ax, T, time=[2011,1,1,0,0], cmap='Greys', vmin=200,vmax=300,lllat=-2.15,urlat=12.7,lllon=-79.95,urlon=-68.9,cb=True,topo=False, remove_borders=False,label='(K)',title=None,ticks=[200,300],corners=[np.nan, np.nan, np.nan, np.nan],logscale=False, labelslon=True, labelslat=True, loncorners=None,latcorners=None,extend='max',boxes=None,boxescolor=['k'],fslonlat=11):
+def plot_image_cartopy( area, ax, T, time=[2011,1,1,0,0], cmap='Greys', vmin=200,vmax=300,lllat=-2.15,urlat=12.7,lllon=-79.95,urlon=-68.9,cb=True,topo=False, remove_borders=False,label='(K)',title=None,ticks=[200,300],corners=[np.nan, np.nan, np.nan, np.nan],logscale=False, labelslon=True, labelslat=True, loncorners=None,latcorners=None,extend='max',boxes=None,boxescolor=['k'],fslonlat=11,dl=3):
     import cartopy.crs as ccrs
     import matplotlib.ticker as mticker
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
     import cartopy.feature as cfeature
-    lat_0 = 0
-    lat_f = 12
+    lat_0 = dl*int(lllat/dl)
+    lat_f = dl*int(urlat/dl)
     dl = 3
-    lon_0 = -80
-    lon_f = -69
+    lon_0 = dl*int(lllon/dl)
+    lon_f = dl*int(urlon/dl)
     extent = [lllon,urlon,lllat,urlat]
-    ax.set_extent(extent)
+    ax.set_extent(extent, crs=ccrs.PlateCarree())
     ax.coastlines(resolution='10m',linewidth=0.5,color='k')
     gl=ax.gridlines(crs=ccrs.PlateCarree(),draw_labels=True,linewidth=0.3,color='gray')
     gl.top_labels = False

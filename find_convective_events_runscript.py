@@ -49,8 +49,8 @@ dhernandezd@unal.edu.co
 # (should match those used in read_GOES_data.py)
 # **********************************************************
 case_name   = 'test'    # optional, for file names. Default is ''
-nx          = 80        # study area grid size
-ny          = 106
+nx          = 64        # study area grid size
+ny          = 80
 deltat      = 30        # time interval between GOES images in minutes
 
 #**********************************************************
@@ -292,6 +292,21 @@ else:
         for i in range(N_events_mm.shape[0]):
             N_events_mm[i][outside]         = np.nan   
     
+    # Compute mean and median of storm duration, but assign this only to the gridpoint of minimum BT of each event:
+    mean_sdur_minBTpeak     = np.zeros([nx,ny])
+    median_sdur_minBTpeak   = np.zeros([nx,ny])
+    mean_ssize_minBTpeak    = np.zeros([nx,ny])
+    median_ssize_minBTpeak  = np.zeros([nx,ny])
+    
+    njobs_tmp=np.min([24,njobs])
+    njobs_iy=int(ny/np.min([24,njobs]))+1
+    out=Parallel(n_jobs=njobs_tmp)(delayed(get_sdursize)(*(np.arange(nx),np.arange(i*njobs_iy,np.min([(i+1)*njobs_iy,ny])),nx,ny,data,area.lon_centers,area.lat_centers,dTmin2h,min_TRMM_precip,max_sizekm2)) for i in range(njobs_tmp))
+    for i in range(njobs_tmp):
+        mean_sdur_minBTpeak +=out[i][0]
+        median_sdur_minBTpeak +=out[i][1]
+        mean_ssize_minBTpeak +=out[i][2]
+        median_ssize_minBTpeak +=out[i][3]
+
     # This distribution of storms takes into account the "cumulative" size throughout the entire storm lifetime (includes all area of BT<T_min at all time steps) (probably not very useful):
     np.save(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_total)
     
@@ -316,24 +331,10 @@ else:
     np.save(folder+'/N_events_wTRMM_sizelimit_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_wTRMM_sizelimit)# considering TRMM precip and maximum size
     np.save(folder+'/N_events_wTRMM_mindTpos_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_wTRMM_mindTpos) # considering TRMM precip, but located at the steepest BT decrease location instead of at minimum BT location.
     
-    print('\n***************\nFinished!\n')
-
-
-    # Compute mean and median of storm duration, but assign this only to the gridpoint of minimum BT of each event:
-    mean_sdur_minBTpeak     = np.zeros([nx,ny])
-    median_sdur_minBTpeak   = np.zeros([nx,ny])
-    mean_ssize_minBTpeak    = np.zeros([nx,ny])
-    median_ssize_minBTpeak  = np.zeros([nx,ny])
+    np.save(folder+'/mean_ssize_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_minBTpeak) 
+    np.save(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak) 
     
-    njobs_tmp=np.min([24,njobs])
-    njobs_iy=int(ny/np.min([24,njobs]))+1
-    out=Parallel(n_jobs=njobs_tmp)(delayed(get_sdursize)(*(np.arange(nx),np.arange(i*njobs_iy,np.min([(i+1)*njobs_iy,ny])),nx,ny,data,area.lon_centers,area.lat_centers,dTmin2h,min_TRMM_precip,max_sizekm2)) for i in range(njobs_tmp))
-    for i in range(njobs_tmp):
-        mean_sdur_minBTpeak +=out[i][0]
-        median_sdur_minBTpeak +=out[i][1]
-        mean_ssize_minBTpeak +=out[i][2]
-        median_ssize_minBTpeak +=out[i][3]
-
+    print('\n***************\nFinished!\n')
     # Make a plot as Fig. 1 in Hernandez-Deckers (2022):
     try:
         make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpeak,mean_sdur_minBTpeak,nx,ny,folder, T_grid, time)
