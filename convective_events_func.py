@@ -78,7 +78,7 @@ def find_events(T_grid, time, area, njob, njobs, T_minmin, T_min, min_TRMM_preci
                 ord_ind=np.flip(np.argsort(tf_events[events_to_merge]))             # check first the closest (in time) events to the current event
                 nevent=0
                 while not merge and nevent<len(events_to_merge):
-                    merge=compare_events(new_event=event0,old_event=events[events_to_merge[nevent]],dt_max=dt_max)    # check if the two events have at least 10% collocation, and similar sizes
+                    merge=compare_events(new_event=event0,old_event=events[events_to_merge[nevent]],dt_max=dt_max)    # check if the two events have a minimum overlap (see compare_events for details), and similar sizes
                     if merge:
                         events[events_to_merge[nevent]].add_system(event0)                              # if yes, add the current time step to the previous event
                         tf_events[events_to_merge[nevent]]=events[events_to_merge[nevent]].tf_hrs
@@ -92,16 +92,20 @@ def find_events(T_grid, time, area, njob, njobs, T_minmin, T_min, min_TRMM_preci
     print('finished job # %04d (of %d)'%(njob+1,njobs), end='\r')
     return events
 
-def compare_events(new_event, old_event, min_shared_area=0.1, dt_max=1): 
+def compare_events(new_event, old_event, dt_max=1): 
     """
     To determine if two events that are separated in time actually correspond to the same event,
-    they must match in at least "min_shared_area" of gridboxes (fraction), and sizes should be 
-    similar (up to 50% difference. This last condition assumes that a system will not change its 
-    size dramatically in dt time (30 min))
+    they must match in at least a fraction of gridboxes, which depends on how far in time the events 
+    are: the threshold is computed as the minimum between 1/(10*t_diff) and 0.5, where t_diff is the 
+    time separation in hours; so, for a 1h separation, at least 10% of the gridboxes of the smaller 
+    event should match. For a 15min separation, the threshold is 40%. For a 5 minute interval, we 
+    use 0.5 (50% overlap). Also, sizes should be similar (up to 50% difference). This last condition 
+    assumes that a system will not change its size dramatically even after the maximum of dt_max (1 hour)
     """
     matches=0
     #make sure the two events are not separated by more than dt_max hours:
-    if 0<=(dt.datetime(*new_event.t0)-dt.datetime(*old_event.tf)).total_seconds()/3600.<=dt_max:
+    t_diff = (dt.datetime(*new_event.t0)-dt.datetime(*old_event.tf)).total_seconds()/3600. # time gap between last time of old event and first time of new event, in hours
+    if 0<=t_diff<=dt_max:
         if len(new_event.coords[0])<len(old_event.coords[-1]):
             for i in range(len(new_event.coords[0])):
                 if new_event.coords[0][i] in old_event.coords[-1]:
@@ -112,7 +116,10 @@ def compare_events(new_event, old_event, min_shared_area=0.1, dt_max=1):
                     matches+=1
         total1 = np.min([len(old_event.coords[-1]),len(new_event.coords[0])]) #size of smallest system
         total2 = np.max([len(old_event.coords[-1]),len(new_event.coords[0])]) #size of largest system
-        if matches/total1>=0.1 and (np.abs(len(old_event.coords[-1])-len(new_event.coords[0]))<=0.5*total2):
+        #if matches/total1>=0.1 and (np.abs(len(old_event.coords[-1])-len(new_event.coords[0]))<=0.5*total2): old version
+        if (t_diff==0 and matches/total1>=0.5 and (np.abs(len(old_event.coords[-1])-len(new_event.coords[0]))<=0.5*total2)):
+            return True
+        elif t_diff>0 and (matches/total1>=np.min([(1/(10*t_diff)),0.5])) and (np.abs(len(old_event.coords[-1])-len(new_event.coords[0]))<=0.5*total2):
             return True
         else:
             return False
@@ -121,6 +128,7 @@ def compare_events(new_event, old_event, min_shared_area=0.1, dt_max=1):
 
 def compile_events(events,time,lon_centers,lat_centers):
     """
+    Creates a numpy array called "data" that contains all the information of all events. This can be saved to a file.
     data will be an array where each row contains the essential information of each identified convective event
     """
     data=[]
@@ -137,6 +145,33 @@ def compile_events(events,time,lon_centers,lat_centers):
         data.append([event.peaks[ind][2], event.peaks[ind][0], event.peaks[ind][1], event.t[ind][0], event.t[ind][1], event.t[ind][2], event.t[ind][3], event.t[ind][4], event.dT, lon_centers[int(event.dT_coord[0])][0], lat_centers[0,int(event.dT_coord[1])], t[0], t[1], t[2], t[3], t[4], np.nanmax(event.TRMM_precip), len(event.coords[ind])*event.area, duration])
         coords.append(event.coords)
     return np.asarray(data), coords
+
+def write_events_file_from_data(data, area, valid_indices, fname='event_list.txt'):
+    # ************************************************************************************
+    # Write list of events to a text file, including timing and location of minimum BT, and 
+    # timing and location of its steepests decrease in BT. If all events in data are to be 
+    # used, valid_indices should be an array with all indces (e.g., np.arange(data.shape[0]))
+    #*************************************************************************************
+
+    f=open(fname,'w')
+    f.write('DATE_MIN_T        LON LAT MIN_T       DATE_MAX_DT       LON LAT MAX_DT(K/h)\n')
+    
+    for i in range(data.shape[0]):
+        if i in valid_indices:
+            t_minT      = data[i,3:8]
+            t_maxdT     = data[i,11:16]
+            minT        = data[i,0]
+            lon_minT    = data[i,1]
+            lat_minT    = data[i,2]
+            maxdT       = data[i,8]
+            lon_maxdT   = data[i,9]
+            lat_maxdT   = data[i,10]
+            if area.mask[np.where((np.around(area.lon_centers,decimals=3)==lon_minT)*(np.around(area.lat_centers,decimals=3)==lat_minT))][0]==1:
+                f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f\n'%(lon_maxdT,lat_maxdT,maxdT))
+    f.close()
+    print('Created file '+fname+' with list of events.')
+
+
 
 def count_events( events_coords, events_coords_data, ind0, lon_corners, lat_corners, mask, nx, ny ):
     """
@@ -182,7 +217,7 @@ def count_events( events_coords, events_coords_data, ind0, lon_corners, lat_corn
                     N_events_hh[events_coords_data[ind][-3],indlon,indlat]+=1
                     N_events_mm[events_coords_data[ind][-2]-1,indlon,indlat]+=1
                     mean_ssize_Tmin[indlon,indlat] += len(coords_Tmin) # still need to multiply times dx*dy (and divide by N_events_total_Tmin
-                    mean_sdur_Tmin[indlon,indlat] += events_coords_data[ind][3] # still need to multiply times dt (e.g., 0.5h) and divide by N_events_total_Tmin
+                    mean_sdur_Tmin[indlon,indlat] += events_coords_data[ind][3] # THIS IS NOW DURATION IN MINUTES! (IGNORE THIS:still need to multiply times dt (e.g., 0.5h) and divide by N_events_total_Tmin)
     return N_events_total, N_events_hh, N_events_mm, N_events_total_Tmin, mean_ssize_Tmin, mean_sdur_Tmin
 
 def contiguous(ind1, ind2):
@@ -239,7 +274,8 @@ def get_events_coordinates( events_valid, ind_events ):
         edata.append(ievent)                                 # 0. index of event
         edata.append(ind_events[ievent])                     # 1. index of event in the data array
         edata.append(ind_coords_all)                         # 2. index in events_coords where coords of this event start
-        edata.append(len(event.coords))                      # 3. number of timesteps n (duration)
+        edata.append(int((dt.datetime(*event.tf)-dt.datetime(*event.t0)).total_seconds()/60)) # 3. event duration in minutes
+        #edata.append(len(event.coords))                      # 3. number of timesteps n (duration)
         for it in range(len(event.coords)):                
             edata.append(len(event.coords[it]))              # 4,5,.. 3+n. number of gridpoints in each timestep (as many elements as number of timesteps (2) 
             for i_gridbox in range(len(event.coords[it])):
@@ -302,7 +338,7 @@ def plot_ssize_duration_distr( ssize, sdur, folder='.'):
     plt.xlim(0,90)
     plt.savefig(folder+'/ssize_duration_distr.png')
 
-def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8):
+def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8,delta_t=30):
     """
     computes the number of 'useful' images relative to the maximum possible by hour.
     This is used to correct distributions in case there is a systematic difference
@@ -311,7 +347,7 @@ def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8):
     """
     t0=dt.datetime(*time[0])
     tf=dt.datetime(*time[-1])
-    max_nimgs_hh=(tf-t0).total_seconds()*2/(24*3600) # maximum number of images corresponding to one hour in the entire period assuming 30 minute intervals
+    max_nimgs_hh=(tf-t0).total_seconds()*(60/delta_t)/(24*3600) # maximum number of images corresponding to one hour in the entire period assuming 30 minute intervals
     valid_fraction=[]
     interruptions = np.zeros([24])
     for i in range(T_grid.shape[0]):
@@ -331,18 +367,19 @@ def make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpea
     """
     from scipy.ndimage import gaussian_filter
     import cartopy.crs as ccrs
+    t_length_years = (dt.datetime(*time[-1])-dt.datetime(*time[0])).total_seconds()/(365*24*3600)
 
     time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny)
     fig=plt.figure(figsize=(14,5.9))
     gs = gridspec.GridSpec(1, 4, left=0.035, right=0.99, hspace=0.2, wspace=0.05, top=0.99, bottom=0.13)
     ax = subplot(gs[0],projection=ccrs.Mercator(central_longitude=-75))
-    cs=plot_image_cartopy(area, ax, N_events_total_Tmin[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+    cs=plot_image_cartopy(area, ax, N_events_total_Tmin[:,:]*10/(tot_time_factor*t_length_years*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
     ax = subplot(gs[1],projection=ccrs.Mercator(central_longitude=-75))
     # smooth with a gaussian filter helps visualization:
     N_events_wTRMM_smooth = gaussian_filter(N_events_wTRMM, sigma=1, mode='reflect', cval=0.0 )
     N_events_wTRMM_smooth[-2,:]=np.nan
     N_events_wTRMM_smooth[:,1]=np.nan
-    cs=plot_image_cartopy(area, ax, N_events_wTRMM_smooth[:,:]*10/(tot_time_factor*7.*area.dx*area.dy),vmin=0,vmax=0.275, ticks=np.arange(0,0.4,0.1), cmap='afmhot_r',label='event rate density (Tmin location)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='b)',labelslat=False,lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+    cs=plot_image_cartopy(area, ax, N_events_wTRMM_smooth[:,:]*10/(tot_time_factor*t_length_years*area.dx*area.dy),vmin=0,vmax=0.275, ticks=np.arange(0,0.4,0.1), cmap='afmhot_r',label='event rate density (Tmin location)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='b)',labelslat=False,lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
     ax = subplot(gs[2],projection=ccrs.Mercator(central_longitude=-75))
     # smooth with a gaussian filter helps visualization:
     ssize_smooth = gaussian_filter(mean_ssize_minBTpeak, sigma=2, mode='reflect', cval=0.0 )
@@ -461,4 +498,17 @@ def plot_image_cartopy( area, ax, T, time=[2011,1,1,0,0], cmap='Greys', vmin=200
                 plt.plot([boxes[i][0],boxes[i][0],boxes[i][1],boxes[i][1],boxes[i][0]],[boxes[i][2],boxes[i][3],boxes[i][3],boxes[i][2],boxes[i][2]],lw=1,color=boxescolor[i],transform=ccrs.PlateCarree())
                 plt.annotate('%d'%(i+1),xy=(boxes[i][0]+0.1,boxes[i][2]+0.1),fontsize=12,fontstyle='italic',transform=ccrs.PlateCarree(),color=boxescolor[i])
     return cs
+
+def find_delta_t(time):
+    # find the typical delta_t of the images by looking at the first 100
+    # images and finding the most frequent time interval (in minutes)
+    from scipy import stats
+    t0 = dt.datetime(*time[0])
+    Dt = []
+    for i in range(1,100):
+        Dt.append((dt.datetime(*time[i])-t0).total_seconds())
+        t0 = dt.datetime(*(time[i]))
+    return stats.mode(Dt)[0][0]/60
+
+
 

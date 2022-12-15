@@ -164,17 +164,22 @@ class Grid(object):
         """
         temp = np.where((lons>=self.minlon)*(lons<=self.maxlon))[1]
         if len(temp)!=0:
-            slicelon = (temp[0],temp[-1])
+            #slicelon = (temp[0],temp[-1])
+            slicelon = (np.min(temp),np.max(temp))
             temp = np.where((lats>=self.minlat)*(lats<=self.maxlat))[0]
             if len(temp)!=0:
-                slicelat = (temp[0],temp[-1])
+                #slicelat = (temp[0],temp[-1])
+                slicelat = (np.min(temp),np.max(temp))
                 img_slice = np.squeeze(img)[slicelat[0]:slicelat[1]+1,slicelon[0]:slicelon[1]+1]
                 lons_slice = lons[slicelat[0]:slicelat[1]+2,slicelon[0]:slicelon[1]+2]
                 lats_slice = lats[slicelat[0]:slicelat[1]+2,slicelon[0]:slicelon[1]+2]
                 
                 #*************************************************
-                # compute brightness temperature:
-                T_slice = get_T(img_slice,goes_version=goes_version)
+                # compute brightness temperature (only for GOES-13):
+                if goes_version in ['13','14']:
+                    T_slice = get_T(img_slice,goes_version=goes_version)
+                else:
+                    T_slice = img_slice # for GOES-16 this is already brightness temp.
                 
                 #*************************************************
                 # mask all data points outside of the study area:

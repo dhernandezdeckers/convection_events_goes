@@ -2,6 +2,7 @@ import numpy as np
 from netCDF4 import Dataset
 import GOES_grid as grid
 from GOES_grid import *
+from extras import *
 import os
 import pickle
 import pdb
@@ -17,13 +18,15 @@ as presented in:
     in northwestern South America obtained from infrared satellite data.
     Q J R Meteorol Soc, 148( 742), 338– 350. https://doi.org/10.1002/qj.4208
 
-This first step reads brightness temperature data from GOES-13 infrarred band (10.7um),
-and averages it to a uniform lat-lon grid defined by the user. It has been tested 
-using netcdf files obtained from:
+This first step reads brightness temperature data from GOES-13 infrarred band (10.7um)
+or from GOES-16 "clean" infrarred band (10.3um), and averages it to a uniform lat-lon 
+grid defined by the user. It has been tested using GOES-13 netcdf files obtained from:
 NOAA (1994) Geostationary Operational Environmental Satellite (GOES) imager data. 
 GVAR_IMG band 4, NOAA National Centers for Environmental Information, Office of 
 Satellite and Product Operations. 
 https://www.avl.class.noaa.gov/saa/products/search?datatype_family=GVAR_IMG
+It has been tested also with GOES-16 ABI images downloaded from aws and processed following
+documentation provided by https://www.goes-r.gov/resources/docs.html.
 
 After running this script, the script "find_convective_events.py" uses this result 
 to identify and track convective events and obtain spatio-temporal statistics of them.
@@ -42,30 +45,32 @@ dhernandezd@unal.edu.co
 
 # ************************************************************************************
 # Main user settings:
-case_name   = 'orinoco_amazonas'    # optional, for file names. Can also be left blanck ('')
-path        = '/media/Drive/GOES/'  # path to GOES images (netcdf format)
+case_name   = 'GOES16_2017test_v2'    # optional, for file names. Can also be left blanck ('')
+#path        = '/media/Drive/GOES/'  # path to GOES images (netcdf format)
+path        = '/media/HD3/GOES16/'  # path to GOES images (netcdf format)
 n_jobs      = 47                    # Number of jobs for parallelization (uses joblib)
 Ea_r        = 6378                  # Earth radius to compute distances from lat lon coordinates
 UTC         = -5                    # Conversion from UTC to local time
-t00         = dt.date(2011,1,1)     # Starting date in datetime format
+t00         = dt.date(2017,7,10)    # Starting date in datetime format
 tff         = dt.date(2017,12,31)   # Final date in datetime format
+GOES_ver    = '16'                  # '13' (2011-2017) or '16' (2017-)
 
 """
 NOTE:
 GOES images should be stored in "path", each year in one folder, each month in one folder.
-For example: path+'/2011/01/goes13.YYYY.DDD.*.nc'
+For example: path+'/2011/01/goes13.YYYY.DDD.*.nc' for GOES-13
 (where DDD is day of year)
 """
 
 # ************************************************************************************
 # Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
 # only the grid size and the edge's latitudes and longitudes are required:
-nx      = 66                        # number of gridcells in x
-ny      = 83                       # number of gridcells in y
-Slat    = -4.93                      # southern latitude
-Nlat    = 7                     # northern latitude
-Wlon    = -76                       # western longitude
-Elon    = -66.515                    # eastern longitude
+nx      = 80#66                        # number of gridcells in x
+ny      = 106#83                       # number of gridcells in y
+Slat    = -2.5#-4.93                      # southern latitude
+Nlat    = 12.75#7                     # northern latitude
+Wlon    = -80#-76                       # western longitude
+Elon    = -68.5#-66.515                    # eastern longitude
 
 
 # ************************************************************************************
@@ -126,17 +131,38 @@ while t <= tff:
     times=[]
     goes_v=[] # goes version (13, 14 or 15)
     while t<=tff and counter<days_per_chunk:
-        ls_list=os.popen('ls '+ path + '%04d/%02d/goes1?.%04d.%03d.'%(t.year,t.month,t.year,t.timetuple().tm_yday) + '*.nc').read().split() #one day
+        if GOES_ver=='16':
+            #ls_list=os.popen('ls '+ path + '%04d/OR_ABI-L1b-BTmp-M?C13_G16_s%04d%03d'%(t.year,t.year,t.timetuple().tm_yday) + '*_BTCOL.nc').read().split() #one day
+            ls_list=os.popen('ls '+ path + '%04d/OR_ABI-L1b-RadF-M?C13_G16_s%04d%03d'%(t.year,t.year,t.timetuple().tm_yday) + '*_COL.nc').read().split() #one day
+        elif GOES_ver=='13':
+            ls_list=os.popen('ls '+ path + '%04d/%02d/goes1?.%04d.%03d.'%(t.year,t.month,t.year,t.timetuple().tm_yday) + '*.nc').read().split() #one day
         for ifile in ls_list:
             try:
-                goes_v.append(ifile[-29:-27])
-                var=Dataset(ifile, mode='r')
-                lons.append(var.variables['lon'][:])
-                lats.append(var.variables['lat'][:])
-                img.append(var.variables['data'][:])
-                date.append(var.variables['imageDate'][:])
-                times.append(var.variables['imageTime'][:])
-                print(ifile, end='\r')
+                if GOES_ver=='16':
+                    goes_v.append(ifile[-57:-55])
+                    if goes_v[-1]!='16':
+                        print('GOES version mismatch!!!!')
+                    #img.append(var.variables['bt'][:])
+                    var, lat, lon, BT = compute_latlon_BT(ifile)
+                    img.append(BT)
+                    lons.append(lon)
+                    lats.append(lat)
+                    #img.append(var.variables['Rad'][:])
+                    datetime = datetime_from_secondsepoch(var.variables['t'][:].data.tolist())
+                    date.append(int('%04d%03d'%(t.year,t.timetuple().tm_yday)))
+                    times.append(int('%02d%02d%02d'%(datetime.hour,datetime.minute,datetime.second)))
+                    print(ifile[-58:], end='\r')
+                elif GOES_ver=='13':
+                    var=Dataset(ifile, mode='r')
+                    goes_v.append(ifile[-29:-27])
+                    if goes_v[-1]!='13':
+                        print('GOES version mismatch!!!!')
+                    img.append(var.variables['data'][:])
+                    date.append(var.variables['imageDate'][:])
+                    times.append(var.variables['imageTime'][:])
+                    print(ifile[-32:], end='\r')
+                    lons.append(var.variables['lon'][:])
+                    lats.append(var.variables['lat'][:])
                 var.close()
                 var=None
             except:
@@ -157,6 +183,12 @@ while t <= tff:
     for i in range(n_jobs):
         T_grid.extend(out[i][0])
         time.extend(out[i][1])
+    jobs = None
+    lons = None
+    lats = None
+    img  = None
+    times= None
+    date = None
 T_grid=np.asarray(T_grid)
 time=np.asarray(time)
 

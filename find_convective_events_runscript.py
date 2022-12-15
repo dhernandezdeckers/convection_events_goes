@@ -48,10 +48,10 @@ dhernandezd@unal.edu.co
 # Main settings:
 # (should match those used in read_GOES_data.py)
 # **********************************************************
-case_name   = 'test'    # optional, for file names. Default is ''
-nx          = 64        # study area grid size
-ny          = 80
-deltat      = 30        # time interval between GOES images in minutes
+case_name   = 'GOES16_2017test'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
+nx          = 80#66        # study area grid size
+ny          = 106#83
+#deltat      = 15        # time interval between GOES images in minutes
 
 #**********************************************************
 # Parameters for convective event identification:
@@ -99,6 +99,7 @@ else:
     T_grid  = np.load(folder+'/T_grid_nxny%d%d.npy'%(nx,ny))
     time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
     area    = pickle.load( open(folder+'/area_nxny%d%d.p'%(nx,ny),'rb'),encoding='latin1')
+    print(case_name)
     print('gridboxes are %.2f x %.2f km\n'%(area.dx,area.dy))
     
     #np.warnings.filterwarnings('ignore')
@@ -120,7 +121,8 @@ else:
     while counter<len(T_minmin_ind):
         temp=[]
         temp.append(T_minmin_ind[counter])
-        while counter<len(T_minmin_ind)-1 and T_minmin_ind[counter+1]<=T_minmin_ind[counter]+dt_max/(deltat/60.):
+        #while counter<len(T_minmin_ind)-1 and T_minmin_ind[counter+1]<=T_minmin_ind[counter]+dt_max/(deltat/60.):
+        while counter<len(T_minmin_ind)-1 and (dt.datetime(*time[T_minmin_ind[counter+1]])-dt.datetime(*time[T_minmin_ind[counter]])<=dt.timedelta(hours=dt_max)):
             temp.append(T_minmin_ind[counter+1])
             counter+=1
         sub_T_minmin_ind.append(temp)
@@ -138,7 +140,7 @@ else:
     # Possible events are identified as those with a contiguous region of BT below T_min 
     # with at least one point with BT below T_minmin (each event is an object):
     print('Running %d jobs (please be patient)...'%(len(jobs)))
-    out=Parallel(n_jobs=njobs)(delayed(find_events)(*jobs[i]) for i in range(len(jobs)))
+    out=Parallel(n_jobs=njobs,pre_dispatch=njobs)(delayed(find_events)(*jobs[i]) for i in range(len(jobs)))
     # Beware: this can take long!
     print('Done!! Now will find steepest BT decrease of each possible event...')
     
@@ -162,25 +164,44 @@ else:
             ind_lat=np.where(np.round(area.lat_centers,3)==event.peaks[i][1])[1][0]
             ttmp=event.t[i]
             ind_t=np.where((time[:,0]==ttmp[0])*(time[:,1]==ttmp[1])*(time[:,2]==ttmp[2])*(time[:,3]==ttmp[3])*(time[:,4]==ttmp[4])*(time[:,5]==ttmp[5]))[0][0]
-            T_gridbox_series=T_grid[np.max([0,int(ind_t-3./(deltat/60.))]):ind_t+1,ind_lon,ind_lat]
+            ind_t_time = dt.datetime(*time[ind_t])
+            ind_tmin3 = ind_t
+            while dt.datetime(*time[ind_tmin3])>(dt.datetime(*time[ind_t])-dt.timedelta(hours=3)) and ind_tmin3>0:
+                ind_tmin3+=-1
+            #T_gridbox_series=T_grid[np.max([0,int(ind_t-3./(deltat/60.))]):ind_t+1,ind_lon,ind_lat]
+            T_gridbox_series=T_grid[ind_tmin3:ind_t+1,ind_lon,ind_lat]
+            time_gridbox_series = time[ind_tmin3:ind_t+1]
             dT2h=0.
             dT2h_t=ind_t
             dT2h_coord=(ind_lon,ind_lat)
             jf=len(T_gridbox_series)-1
-            j0=jf-int(2./(deltat/60.))
-            count=0
+            j0=jf
+            while (dt.datetime(*time_gridbox_series[j0])>dt.datetime(*time_gridbox_series[jf])-dt.timedelta(hours=2)) and j0>0:
+                j0+=-1
+            #j0=jf-int(2./(deltat/60.))
+            #count=0
             while j0>=0:
                 if 9999 in [T_gridbox_series[jf],T_gridbox_series[j0]]:
                     dT2h_temp=0
                 else:
                     dT2h_temp=T_gridbox_series[jf]-T_gridbox_series[j0]
-                j0=j0-1
-                jf=jf-1
                 if dT2h_temp<dT2h:
-                    dT2h=dT2h_temp
-                    dT2h_t=ind_t-count-int(1./(deltat/60.))
+                    dT2h = dT2h_temp
+                    j_tmp = jf
+                    counter=0
+                    while (dt.datetime(*time_gridbox_series[j_tmp])>dt.datetime(*time_gridbox_series[jf])-dt.timedelta(hours=1)) and j_tmp>0:
+                        j_tmp+=-1
+                        counter+=1
+                    dT2h_t = ind_t - counter
+                    #dT2h_t=ind_t-count-int(1./(deltat/60.))
                     dT2h_coord=(ind_lon,ind_lat)
-                count+=1
+                #count+=1
+                jf=jf-1
+                j0=jf
+                while (dt.datetime(*time_gridbox_series[j0])>dt.datetime(*time_gridbox_series[jf])-dt.timedelta(hours=2)) and j0>0:
+                    j0+=-1
+                #j0=j0-1
+                #jf=jf-1
             dT.append(dT2h)
             dT_t.append(dT2h_t)
             dT_coord.append(dT2h_coord)
@@ -198,27 +219,23 @@ else:
     ind_events=np.where((data[:,8]<=dTmin2h)*(data[:,16]>=min_TRMM_precip))[0] 
     events_valid = np.asarray(events)[ind_events]
 
-    # ************************************************************************************
-    # Write list of events to a text file, including timing and location of minimum BT, and 
-    # timing and location of its steepests decrease in BT:
-    f=open(folder+'/events_nxny%d%d_Tmin%d_T2min%d.txt'%(nx,ny,T_minmin,T_min),'w')
-    f.write('DATE_MIN_T        LON LAT MIN_T       DATE_MAX_DT       LON LAT MAX_DT(K/h)\n')
-    
-    for event in events_valid:
-        event.find_minT()
-        t_minT=event.t[event.minT_ind]
-        t_maxdT=event.dT_t
-        peak = event.peaks[event.minT_ind]
-        minT     = peak[2]
-        lon_minT = peak[0]
-        lat_minT = peak[1]
-        maxdT = event.dT # K/h
-        lon_maxdT = area.lon_centers[event.dT_coord]
-        lat_maxdT = area.lat_centers[event.dT_coord]
-        if area.mask[np.where((np.around(area.lon_centers,decimals=3)==lon_minT)*(np.around(area.lat_centers,decimals=3)==lat_minT))][0]==1:
-            f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f\n'%(lon_maxdT,lat_maxdT,maxdT))
-    f.close()
-    print("Created file 'events_nxny%d%d_Tmin%d_T2min%d.txt' with list of events."%(nx,ny,T_minmin,T_min))
+    write_events_file_from_data(data, area, ind_events, fname=folder+'/events_nxny%d%d_Tmin%d_T2min%d.txt'%(nx,ny,T_minmin,T_min))
+
+    #for event in events_valid:
+    #    event.find_minT()
+    #    t_minT=event.t[event.minT_ind]
+    #    t_maxdT=event.dT_t
+    #    peak = event.peaks[event.minT_ind]
+    #    minT     = peak[2]
+    #    lon_minT = peak[0]
+    #    lat_minT = peak[1]
+    #    maxdT = event.dT # K/h
+    #    lon_maxdT = area.lon_centers[event.dT_coord]
+    #    lat_maxdT = area.lat_centers[event.dT_coord]
+    #    if area.mask[np.where((np.around(area.lon_centers,decimals=3)==lon_minT)*(np.around(area.lat_centers,decimals=3)==lat_minT))][0]==1:
+    #        f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f\n'%(lon_maxdT,lat_maxdT,maxdT))
+    #f.close()
+    #print("Created file 'events_nxny%d%d_Tmin%d_T2min%d.txt' with list of events."%(nx,ny,T_minmin,T_min))
 
     # plot size and duration distributions:
     ssize = data[ind_events,17][0]*1e-5
@@ -262,7 +279,8 @@ else:
         mean_ssize_Tmin     = mean_ssize_Tmin + out[i][4]
         mean_sdur_Tmin      = mean_sdur_Tmin + out[i][5]
     mean_ssize_Tmin = (mean_ssize_Tmin/N_events_total_Tmin)*area.dx*area.dy # to get the average size in km2
-    mean_sdur_Tmin  = mean_sdur_Tmin*(deltat/60.)/N_events_total_Tmin       # to get the average duration in hours
+    #mean_sdur_Tmin  = mean_sdur_Tmin*(deltat/60.)/N_events_total_Tmin       # to get the average duration in hours
+    mean_sdur_Tmin  = (mean_sdur_Tmin/60)/N_events_total_Tmin       # to get the average duration in hours
 
     # Now count each event only at one gridpoint: where it reaches its minimum BT.
     # compute this by splitting the grid through x:
