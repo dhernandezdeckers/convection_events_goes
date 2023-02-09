@@ -201,7 +201,7 @@ def count_events( events_coords, events_coords_data, ind0, lon_corners, lat_corn
                 indlon=np.where(lon_corners<coords[0])[0][-1]
                 indlat=np.where(lat_corners<coords[1])[1][-1]
                 if mask[indlon,indlat]==1:
-                    N_events_total[indlon,indlat]+=1          
+                    N_events_total[indlon,indlat]+=1
                     counted_coords.append((coords[0],coords[1]))
 
         # ****************************************************
@@ -347,7 +347,7 @@ def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8,delta_t=30):
     """
     t0=dt.datetime(*time[0])
     tf=dt.datetime(*time[-1])
-    max_nimgs_hh=(tf-t0).total_seconds()*(60/delta_t)/(24*3600) # maximum number of images corresponding to one hour in the entire period assuming 30 minute intervals
+    max_nimgs_hh=(tf-t0).total_seconds()*(60/delta_t)/(24*3600) # maximum number of images corresponding to one hour in the entire period based on deltat
     valid_fraction=[]
     interruptions = np.zeros([24])
     for i in range(T_grid.shape[0]):
@@ -362,18 +362,21 @@ def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8,delta_t=30):
 
 def make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpeak,mean_sdur_minBTpeak,nx,ny,folder, T_grid, time):
     """
-    Create plot of event rate density (a) considering the entire region with BT<T_min, 
+    Create preliminary plot of event rate density (a) considering the entire region with BT<T_min, 
     (b) considering only the location of minimum BT, (c) mean event size and (d) mean event duration.
     """
     from scipy.ndimage import gaussian_filter
     import cartopy.crs as ccrs
     t_length_years = (dt.datetime(*time[-1])-dt.datetime(*time[0])).total_seconds()/(365*24*3600)
 
-    time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny)
+    #time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny) This is beter not to use with GOES16 (and since this is just a first visual check, it is not worth)
+    time_factor_hh = np.ones(24)
+    tot_time_factor= 1.
+    
     fig=plt.figure(figsize=(14,5.9))
     gs = gridspec.GridSpec(1, 4, left=0.035, right=0.99, hspace=0.2, wspace=0.05, top=0.99, bottom=0.13)
     ax = subplot(gs[0],projection=ccrs.Mercator(central_longitude=-75))
-    cs=plot_image_cartopy(area, ax, N_events_total_Tmin[:,:]*10/(tot_time_factor*t_length_years*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
+    cs = plot_image_cartopy(area, ax, N_events_total_Tmin[:,:]*10/(tot_time_factor*t_length_years*area.dx*area.dy),vmin=0,vmax=10, ticks=np.arange(0,10,2), cmap='afmhot_r',label='event rate density (BT<235K)\n(x10$^{-1}$ km$^{-2}$yr$^{-1}$)',remove_borders=True, title='a)',lllat=area.lrlat, urlat=area.urlat,lllon=area.ullon,urlon=area.urlon) # remove borders to avoid unrealistic counts at borders due to large systems that cross the boundary
     ax = subplot(gs[1],projection=ccrs.Mercator(central_longitude=-75))
     # smooth with a gaussian filter helps visualization:
     N_events_wTRMM_smooth = gaussian_filter(N_events_wTRMM, sigma=1, mode='reflect', cval=0.0 )

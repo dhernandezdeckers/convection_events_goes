@@ -7,16 +7,16 @@ from extras import *
 from joblib import Parallel, delayed
 
 # initial date:
-yy0 = 2017
-mm0 = 7 
-dd0 = 10
+yy0 = 2022
+mm0 = 12 
+dd0 = 1
 
 # final date:
-yyf = 2017
-mmf = 12 
+yyf = 2022
+mmf = 12
 ddf = 31
 
-n_jobs = 18
+n_jobs = 31
 
 crop = True
 

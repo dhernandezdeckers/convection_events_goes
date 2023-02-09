@@ -17,9 +17,9 @@ import cartopy.crs as ccrs
 # **********************************************************
 # case parameters (should match those used in read_GOES_data.py and find_convective_events.py)
 # **********************************************************
-case_name   = 'GOES16_2017test'#orinoco_amazonas'    # optional, for file names. 
-nx          = 80#66        # study area grid size
-ny          = 106#83
+case_name   = 'GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
+nx          = 160#80#66        # study area grid size
+ny          = 212#106#83
 
 #**********************************************************
 # Parameters for convective event identification:
@@ -39,7 +39,7 @@ dt_max          = 1
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = 0.1
+min_TRMM_precip = 0
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):
@@ -62,6 +62,7 @@ urlat = 12.7#7
 lllon = -79.95#-76
 urlon = -68.9#-66.8
 
+correct_for_data_availability = False       # if certain hours (or months) have less available data than others, this can cause certain (unreal) biases in the distributions of events. This can reduce this bias (not recommended for GOES-16 data which does not have this problem as much as GOES-13). Default: False.
 
 limited_area = False # True if only events from a subdomain are to be processed
 
@@ -132,21 +133,26 @@ if limited_area:
 mean_ssize_minBTpeak = np.load(folder+'/mean_ssize_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
 mean_sdur_minBTpeak = np.load(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
 
-ndays   = (dt.date(2018,1,1)-dt.date(2011,1,1)).days # total number of days of the time period
-ndays_m = [] # number of days per month in the entire time period
-for m in range(12):
-    ndays_temp=0
-    for y in np.arange(2011,2018):
-        if m<11:
-            ndays_temp+=(dt.date(y,m+2,1)-dt.date(y,m+1,1)).days
-        else:
-            ndays_temp+=31 #december
-    ndays_m.append(ndays_temp)
-ndays_m = np.asarray(ndays_m)
+#ndays   = (dt.date(*time[-1][:3])-dt.date(*time[0][:3])).days # total number of days of the time period
+#ndays_m = [] # number of days per month in the entire time period
+#for m in range(12):
+#    ndays_temp=0
+#    for y in np.arange(time[0][0],time[-1][0]):
+#        if m<11:
+#            ndays_temp+=(dt.date(y,m+2,1)-dt.date(y,m+1,1)).days
+#        else:
+#            ndays_temp+=31 #december
+#    ndays_m.append(ndays_temp)
+#ndays_m = np.asarray(ndays_m)
 
 deltat = find_delta_t(time)
 
-time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny, delta_t=deltat)
+if correct_for_data_availability:
+    time_factor_hh, tot_time_factor = get_factor_available_data(T_grid, time, nx, ny, delta_t=deltat)
+else:
+    time_factor_hh = np.ones(24)
+    tot_time_factor = 1.
+
 time_years=data[:,-8]+(data[:,-7]-1)/12+data[:,-6]/365
 time_period_years = np.max(time_years)-np.min(time_years)
 

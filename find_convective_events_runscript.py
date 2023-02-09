@@ -3,6 +3,7 @@ import pickle
 import pdb
 from joblib import Parallel, delayed
 from convective_events_func import *
+import gc
 import os
 
 """
@@ -48,9 +49,9 @@ dhernandezd@unal.edu.co
 # Main settings:
 # (should match those used in read_GOES_data.py)
 # **********************************************************
-case_name   = 'GOES16_2017test'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
-nx          = 80#66        # study area grid size
-ny          = 106#83
+case_name   = 'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
+nx          = 160#80#66        # study area grid size
+ny          = 212#106#83
 #deltat      = 15        # time interval between GOES images in minutes
 
 #**********************************************************
@@ -74,7 +75,7 @@ max_sizekm2 = 300000
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = 0.1
+min_TRMM_precip = 0
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):
@@ -143,7 +144,11 @@ else:
     out=Parallel(n_jobs=njobs,pre_dispatch=njobs)(delayed(find_events)(*jobs[i]) for i in range(len(jobs)))
     # Beware: this can take long!
     print('Done!! Now will find steepest BT decrease of each possible event...')
+    del jobs
+    del T_grid
     
+    gc.collect()
+
     events=[]
     for i in range(len(out)):
         events.extend(out[i])
@@ -214,6 +219,7 @@ else:
     # save the essential data of all events as a numpy array and write it to a file:
     data, coords_data = compile_events(events,time,area.lon_centers,area.lat_centers)
     np.save(folder+'/data_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),data)
+    del time
         
     # select events with rapid decrease in BT (<dTmin2h) and minimum TRMM precip (if min_TRMM_precip is set to >0)
     ind_events=np.where((data[:,8]<=dTmin2h)*(data[:,16]>=min_TRMM_precip))[0] 
@@ -221,25 +227,9 @@ else:
 
     write_events_file_from_data(data, area, ind_events, fname=folder+'/events_nxny%d%d_Tmin%d_T2min%d.txt'%(nx,ny,T_minmin,T_min))
 
-    #for event in events_valid:
-    #    event.find_minT()
-    #    t_minT=event.t[event.minT_ind]
-    #    t_maxdT=event.dT_t
-    #    peak = event.peaks[event.minT_ind]
-    #    minT     = peak[2]
-    #    lon_minT = peak[0]
-    #    lat_minT = peak[1]
-    #    maxdT = event.dT # K/h
-    #    lon_maxdT = area.lon_centers[event.dT_coord]
-    #    lat_maxdT = area.lat_centers[event.dT_coord]
-    #    if area.mask[np.where((np.around(area.lon_centers,decimals=3)==lon_minT)*(np.around(area.lat_centers,decimals=3)==lat_minT))][0]==1:
-    #        f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f\n'%(lon_maxdT,lat_maxdT,maxdT))
-    #f.close()
-    #print("Created file 'events_nxny%d%d_Tmin%d_T2min%d.txt' with list of events."%(nx,ny,T_minmin,T_min))
-
     # plot size and duration distributions:
-    ssize = data[ind_events,17][0]*1e-5
-    sdur  = data[ind_events,18][0]
+    ssize = data[ind_events][:,17]*1e-5
+    sdur  = data[ind_events][:,18]
     plot_ssize_duration_distr( ssize, sdur, folder )
     
     print('Computing spatial and temporal distribution of events...')
@@ -247,6 +237,9 @@ else:
     # get the coordinates of the events in a particular format that is designed to determine
     # spatial distributions:
     events_coords, events_coords_data = get_events_coordinates( events_valid, ind_events )
+    del events
+    del events_valid
+    gc.collect()
 
     # ************************************************************************************
     # count the number of events in each gridbox (in total, by hour, by month, etc.)
@@ -270,7 +263,9 @@ else:
         jobs.append(( events_coords[events_coords_data[i0][2]:events_coords_data[i1-1][-1]+1], events_coords_data[i0:i1], events_coords_data[ijobs*nevents_job][2], area.lon_corners, area.lat_corners, area.mask, nx, ny ))
         ijobs+=1
     out = Parallel(n_jobs=len(jobs))(delayed(count_events)(*jobs[i]) for i in range(len(jobs)))
-    
+    del jobs
+    gc.collect()
+
     for i in range(len(jobs)):
         N_events_total      = N_events_total + out[i][0]
         N_events_hh         = N_events_hh + out[i][1]
@@ -324,6 +319,8 @@ else:
         median_sdur_minBTpeak +=out[i][1]
         mean_ssize_minBTpeak +=out[i][2]
         median_ssize_minBTpeak +=out[i][3]
+    del data
+    gc.collect()
 
     # This distribution of storms takes into account the "cumulative" size throughout the entire storm lifetime (includes all area of BT<T_min at all time steps) (probably not very useful):
     np.save(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_total)
@@ -353,11 +350,15 @@ else:
     np.save(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak) 
     
     print('\n***************\nFinished!\n')
-    # Make a plot as Fig. 1 in Hernandez-Deckers (2022):
+    # Make a plot similar to Fig. 1 in Hernandez-Deckers (2022):
     try:
+        T_grid  = np.load(folder+'/T_grid_nxny%d%d.npy'%(nx,ny))
+        time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
         make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpeak,mean_sdur_minBTpeak,nx,ny,folder, T_grid, time)
         print('created sample spatial distribution plot!')    
     except:
         print('could not create sample spatial distribution plot!')
-    
+    del T_grid
+    del time
+    gc.collect()
 
