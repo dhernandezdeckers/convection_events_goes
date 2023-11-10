@@ -49,9 +49,9 @@ dhernandezd@unal.edu.co
 # Main settings:
 # (should match those used in read_GOES_data.py)
 # **********************************************************
-case_name   = 'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
-nx          = 160#80#66        # study area grid size
-ny          = 212#106#83
+case_name   = 'MM_G13'#'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
+nx          = 14#160#80#66        # study area grid size
+ny          = 26#212#106#83
 #deltat      = 15        # time interval between GOES images in minutes
 
 #**********************************************************
@@ -75,11 +75,11 @@ max_sizekm2 = 300000
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = 0
+min_TRMM_precip = .1
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):
-TRMM_data_path  = '/media/Drive/TRMM_3HR/netcdf/'
+TRMM_data_path  = '/media/HD3/TRMM_3HR/netcdf/'
 
 # number of jobs for parallelization (joblib):
 njobs           = 48
@@ -145,7 +145,6 @@ else:
     # Beware: this can take long!
     print('Done!! Now will find steepest BT decrease of each possible event...')
     del jobs
-    del T_grid
     
     gc.collect()
 
@@ -214,6 +213,8 @@ else:
         event.add_dT2h(dT[ind_dT],time[dT_t[ind_dT]],dT_coord[ind_dT])
         i_ev+=1
     print('\nDone!!')
+    del T_grid
+    gc.collect()
 
     # ************************************************************************************
     # save the essential data of all events as a numpy array and write it to a file:
@@ -263,8 +264,6 @@ else:
         jobs.append(( events_coords[events_coords_data[i0][2]:events_coords_data[i1-1][-1]+1], events_coords_data[i0:i1], events_coords_data[ijobs*nevents_job][2], area.lon_corners, area.lat_corners, area.mask, nx, ny ))
         ijobs+=1
     out = Parallel(n_jobs=len(jobs))(delayed(count_events)(*jobs[i]) for i in range(len(jobs)))
-    del jobs
-    gc.collect()
 
     for i in range(len(jobs)):
         N_events_total      = N_events_total + out[i][0]
@@ -276,6 +275,8 @@ else:
     mean_ssize_Tmin = (mean_ssize_Tmin/N_events_total_Tmin)*area.dx*area.dy # to get the average size in km2
     #mean_sdur_Tmin  = mean_sdur_Tmin*(deltat/60.)/N_events_total_Tmin       # to get the average duration in hours
     mean_sdur_Tmin  = (mean_sdur_Tmin/60)/N_events_total_Tmin       # to get the average duration in hours
+    del jobs
+    gc.collect()
 
     # Now count each event only at one gridpoint: where it reaches its minimum BT.
     # compute this by splitting the grid through x:

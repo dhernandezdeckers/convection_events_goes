@@ -133,13 +133,14 @@ def compile_events(events,time,lon_centers,lat_centers):
     """
     data=[]
     coords=[]
+    delta_t = find_delta_t(time) # in minutes
     for event in events:
         event.find_minT()
         ind=event.minT_ind
         t=event.dT_t
         t0 = event.t0
         tf = event.tf
-        duration = (dt.datetime(*tf)-dt.datetime(*t0)).total_seconds()/3600.
+        duration = (dt.datetime(*tf)-dt.datetime(*t0)).total_seconds()/3600. + delta_t/60
         # storm size is estimated at minT_ind time (area of region below Tmin at time of minT)
         # Tmin lon lat yy mm dd hr min maxdT lon(maxdT) lat(maxdT) yy(maxdT) mm dd hr min max_TRMM_precip area(of system at Tmin time, in km2) duration(hours)
         data.append([event.peaks[ind][2], event.peaks[ind][0], event.peaks[ind][1], event.t[ind][0], event.t[ind][1], event.t[ind][2], event.t[ind][3], event.t[ind][4], event.dT, lon_centers[int(event.dT_coord[0])][0], lat_centers[0,int(event.dT_coord[1])], t[0], t[1], t[2], t[3], t[4], np.nanmax(event.TRMM_precip), len(event.coords[ind])*event.area, duration])
@@ -152,9 +153,9 @@ def write_events_file_from_data(data, area, valid_indices, fname='event_list.txt
     # timing and location of its steepests decrease in BT. If all events in data are to be 
     # used, valid_indices should be an array with all indces (e.g., np.arange(data.shape[0]))
     #*************************************************************************************
-
+    
     f=open(fname,'w')
-    f.write('DATE_MIN_T        LON LAT MIN_T       DATE_MAX_DT       LON LAT MAX_DT(K/h)\n')
+    f.write('DATE_MIN_T        LON LAT MIN_T       DATE_MAX_DT       LON LAT MAX_DT(K/h) DURATION(h) AREA(km2)\n')
     
     for i in range(data.shape[0]):
         if i in valid_indices:
@@ -166,8 +167,10 @@ def write_events_file_from_data(data, area, valid_indices, fname='event_list.txt
             maxdT       = data[i,8]
             lon_maxdT   = data[i,9]
             lat_maxdT   = data[i,10]
+            duration    = data[i,18]
+            event_area  = data[i,17]
             if area.mask[np.where((np.around(area.lon_centers,decimals=3)==lon_minT)*(np.around(area.lat_centers,decimals=3)==lat_minT))][0]==1:
-                f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f\n'%(lon_maxdT,lat_maxdT,maxdT))
+                f.write('%04d %02d %02d %02d %02d'%(t_minT[0],t_minT[1],t_minT[2],t_minT[3],t_minT[4])+' %.3f %.3f %.1f '%(lon_minT,lat_minT,minT)+' %04d %02d %02d %02d %02d'%(t_maxdT[0],t_maxdT[1],t_maxdT[2],t_maxdT[3],t_maxdT[4])+' %.3f %.3f %.1f %.2f %d\n'%(lon_maxdT,lat_maxdT,maxdT,duration,event_area))
     f.close()
     print('Created file '+fname+' with list of events.')
 
@@ -338,7 +341,7 @@ def plot_ssize_duration_distr( ssize, sdur, folder='.'):
     plt.xlim(0,90)
     plt.savefig(folder+'/ssize_duration_distr.png')
 
-def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8,delta_t=30):
+def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8):
     """
     computes the number of 'useful' images relative to the maximum possible by hour.
     This is used to correct distributions in case there is a systematic difference
@@ -347,6 +350,7 @@ def get_factor_available_data(T_grid,time,nx,ny,threshold=0.8,delta_t=30):
     """
     t0=dt.datetime(*time[0])
     tf=dt.datetime(*time[-1])
+    delta_t = find_delta_t(time) # in minutes
     max_nimgs_hh=(tf-t0).total_seconds()*(60/delta_t)/(24*3600) # maximum number of images corresponding to one hour in the entire period based on deltat
     valid_fraction=[]
     interruptions = np.zeros([24])

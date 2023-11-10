@@ -17,9 +17,9 @@ import cartopy.crs as ccrs
 # **********************************************************
 # case parameters (should match those used in read_GOES_data.py and find_convective_events.py)
 # **********************************************************
-case_name   = 'GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
-nx          = 160#80#66        # study area grid size
-ny          = 212#106#83
+case_name   = 'MM_G13'#'NWSA'#GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
+nx          = 16#80#160#80#66        # study area grid size
+ny          = 28#106#212#106#83
 
 #**********************************************************
 # Parameters for convective event identification:
@@ -39,11 +39,11 @@ dt_max          = 1
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = 0
+min_TRMM_precip = 0.1
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):
-TRMM_data_path  = '/media/Drive/TRMM_3HR/netcdf/'
+TRMM_data_path  = '/media/HD3/TRMM_3HR/netcdf/'
 
 # number of jobs for parallelization:
 njobs           = 48   
@@ -67,10 +67,10 @@ correct_for_data_availability = False       # if certain hours (or months) have 
 limited_area = False # True if only events from a subdomain are to be processed
 
 # this only has effect if limited_area is True:
-subdomain_slat = 6.906134
-subdomain_nlat = 9.410578
-subdomain_wlon = -75.533732
-subdomain_elon = -73.868053
+subdomain_slat = 4.98#6.906134
+subdomain_nlat = 8.41#9.410578
+subdomain_wlon = -74.90#-75.533732
+subdomain_elon = -73.19#-73.868053
 
 
 boxes=[[-78.2,-77.5,3.5,4.25],
@@ -101,7 +101,6 @@ else:
     time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
     area    = pickle.load( open(folder+'/area_nxny%d%d.p'%(nx,ny),'rb'),encoding='latin1')
     print('gridboxes are %.2f x %.2f km\n'%(area.dx,area.dy))
-
 np.warnings.filterwarnings('ignore')
 
 cmap = plt.get_cmap('jet')
@@ -234,7 +233,7 @@ ax.scatter(area.lon_centers[morning],area.lat_centers[morning],transform=ccrs.Pl
 ax.annotate('.......................................',xy=(0.03,-0.07),xycoords='axes fraction',zorder=10,fontsize=9,color='w')
 ax.annotate('.......................................',xy=(0.03,-0.08),xycoords='axes fraction',zorder=10,fontsize=9,color='w')
 
-LIS_file=Dataset('/media/Drive/TRMM_LIS/lis_vhrfc_1998_2013_v01.nc',mode='r')
+LIS_file=Dataset('/media/HD3/TRMM_LIS/lis_vhrfc_1998_2013_v01.nc',mode='r')
 LIS=LIS_file.variables['VHRFC_LIS_FRD'][:]
 lons=np.arange(-180,180.05,0.1)
 lats=np.arange(-38,38.05,0.1)

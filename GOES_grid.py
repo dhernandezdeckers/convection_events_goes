@@ -176,7 +176,7 @@ class Grid(object):
                 
                 #*************************************************
                 # compute brightness temperature (only for GOES-13):
-                if goes_version in ['13','14']:
+                if goes_version in ['13','14','15']:
                     T_slice = get_T(img_slice,goes_version=goes_version)
                 else:
                     T_slice = img_slice # for GOES-16 this is already brightness temp.
@@ -299,7 +299,7 @@ class Grid(object):
                             plt.scatter(self.lon_centers[i,j],self.lat_centers[i,j],marker='x',c='k',s=10, transform=ccrs.PlateCarree())
         if fname!=None:
             plt.savefig(fname)
-        plt.show()
+        #plt.show()
 
             
 def is_in_box(P1,P2,P3,P4):

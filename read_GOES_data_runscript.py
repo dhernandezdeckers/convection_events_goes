@@ -46,16 +46,16 @@ dhernandezd@unal.edu.co
 
 # ************************************************************************************
 # Main user settings:
-case_name       = 'GOES16_2018-2022_HR'    # optional, for file names. Can also be left blanck ('')
-path            = '/media/HD3/GOES16/'  # path to GOES images (netcdf format)
+case_name       = 'MM_G13'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
+path            = '/media/Drive/GOES/'  # path to GOES images (netcdf format)
 n_jobs          = 47                    # Number of jobs for parallelization (uses joblib)
 Ea_r            = 6378                  # Earth radius to compute distances from lat lon coordinates
 UTC             = -5                    # Conversion from UTC to local time
-t00             = dt.date(2018,1,1)    # Starting date in datetime format
-tff             = dt.date(2022,12,31)   # Final date in datetime format
-GOES_ver        = '16'                  # '13' (2011-2017) or '16' (2017-)
-days_per_chunk  = 10                    # entire time is splitted in this number of days (limited by available memory!)
-restart_run     = True                  # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
+t00             = dt.date(2011,1,1)    # Starting date in datetime format
+tff             = dt.date(2017,12,31)   # Final date in datetime format
+GOES_ver        = '13'                  # '13' (2011-2017) or '16' (2017-)
+days_per_chunk  = 60                    # entire time is splitted in this number of days (limited by available memory!)
+restart_run     = False                  # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
 
 """
 NOTE:
@@ -67,12 +67,12 @@ For example: path+'/2011/01/goes13.YYYY.DDD.*.nc' for GOES-13
 # ************************************************************************************
 # Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
 # only the grid size and the edge's latitudes and longitudes are required:
-nx      = 160#80#66                        # number of gridcells in x
-ny      = 212#106#83                       # number of gridcells in y
-Slat    = -2.5#-4.93                      # southern latitude
-Nlat    = 12.75#7                     # northern latitude
-Wlon    = -80#-76                       # western longitude
-Elon    = -68.5#-66.515                    # eastern longitude
+nx      = 16#160#80#66                        # number of gridcells in x
+ny      = 28#212#106#83                       # number of gridcells in y
+Slat    = 4.697#4.84#-2.5#-4.93                      # southern latitude
+Nlat    = 8.703#8.56#12.75#7                     # northern latitude
+Wlon    = -75.19#-75.05#-80#-76                       # western longitude
+Elon    = -72.91#-73.05#-68.5#-66.515                    # eastern longitude
 
 
 # ************************************************************************************
@@ -80,20 +80,23 @@ Elon    = -68.5#-66.515                    # eastern longitude
 mask=np.ones([nx,ny]) # this means no mask (entire grid is used)
 
 # If mask is needed, set masked gridboxes to zero. For example:
-#mask[0,-1]=0
-#mask[1,0]=mask[1,8:]=0
-#mask[2,0]=mask[2,10:]=0
-#mask[3,:5]=mask[3,14:]=0
-#mask[4,:6]=mask[4,16:]=0
-#mask[5,:8]=mask[5,16:]=0
-#mask[6,:8]=mask[6,18]=mask[6,20:]=0
-#mask[7,:9]=mask[7,-1]=0
-#mask[8,:11]=mask[8,-1]=0
-#mask[9,:11]=mask[9,-1]=0
-#mask[10,:13]=mask[10,-2:]=0
-#mask[11,:15]=mask[11,-4:]=0
-#mask[12,:17]=mask[12,20:]=0
-#mask[13,:]=0
+mask[0,:]=0
+mask[1,:]=0
+
+mask[2,:2]=mask[2,9:]=0
+mask[3,:2]=mask[3,11:]=0
+mask[4,:6]=mask[4,15:]=0
+mask[5,:7]=mask[5,17:]=0
+mask[6,:9]=mask[6,17:]=0
+mask[7,:9]=mask[7,19]=mask[7,21:]=0
+mask[8,:10]=mask[8,-2:]=0
+mask[9,:12]=mask[9,-2:]=0
+mask[10,:12]=mask[10,-2:]=0
+mask[11,:14]=mask[11,-3:]=0
+mask[12,:16]=mask[12,-4:]=0
+mask[13,:18]=mask[13,21:]=0
+mask[14,:]=0
+mask[15,:]=0
 
 # ************************************************************************************
 # ***************** END OF USER PARAMETERS ********************************************
@@ -122,19 +125,28 @@ pickle.dump( area, open(folder+'/area_nxny%d%d.p'%(nx,ny),'wb'))
 print('Reading files:')
 
 counter_files=0
+OK = True
 if restart_run:  #find the last saved file, and start reading on the next day
     print('Will use previously saved T_grid and time files.')
-    ls_list=os.popen('ls '+ folder+'/time_nxny%d%d_????.npy'%(nx,ny)).read().split()
-    counter_files = int(ls_list[-1][-8:-4])
-    if os.path.isfile(folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,counter_files)):
-        time = np.load(folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,counter_files))[-1]
-        t00=dt.datetime(*time).date()+dt.timedelta(days=1)
-        OK = True
-        print('Found %d files. Will continue with file %d on '%(counter_files,counter_files+1)+ t00.strftime("%m/%d/%Y"))
-        counter_files+=1
+    os.system('ls '+ folder+'/time_nxny%d%d_????.npy>ls.txt'%(nx,ny))
+    ls_file = open('ls.txt','r')
+    lines=ls_file.readlines()
+    ls_file.close()
+    os.remove('ls.txt')
+    if len(lines)>0:
+        ls_list=os.popen('ls '+ folder+'/time_nxny%d%d_????.npy'%(nx,ny)).read().split()
+        counter_files = int(ls_list[-1][-8:-4])
+        if os.path.isfile(folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,counter_files)):
+            time = np.load(folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,counter_files))[-1]
+            t00=dt.datetime(*time).date()+dt.timedelta(days=1)
+            OK = True
+            print('Found %d files. Will continue with file %d on '%(counter_files,counter_files+1)+ t00.strftime("%m/%d/%Y"))
+            counter_files+=1
+        else:
+            print('******ERROR: please check that both T_grid_nxny..*.npy and time_nxny..*.npy are present, and run again!\n')
+            OK = False
     else:
-        print('******ERROR: please check that both T_grid_nxny..*.npy and time_nxny..*.npy are present, and run again!\n')
-        OK = False
+        print("please set 'restart_run' to False!")
 
 if OK or not(restart_run):
     t=t00
@@ -159,7 +171,7 @@ if OK or not(restart_run):
                     if GOES_ver=='16':
                         goes_v.append(ifile[-57:-55])
                         if goes_v[-1]!='16':
-                            print('GOES version mismatch!!!!')
+                            print('Warning: GOES version mismatch!!!! Will use it nevertheless')
                         #img.append(var.variables['bt'][:])
                         var, lat, lon, BT = compute_latlon_BT(ifile)
                         img.append(BT)
@@ -174,11 +186,11 @@ if OK or not(restart_run):
                         var=Dataset(ifile, mode='r')
                         goes_v.append(ifile[-29:-27])
                         if goes_v[-1]!='13':
-                            print('GOES version mismatch!!!!')
+                            print('Warning: GOES version is ',goes_v[-1],'. Mismatch!!!! Will use it nevertheless.')
                         img.append(var.variables['data'][:])
                         date.append(var.variables['imageDate'][:])
                         times.append(var.variables['imageTime'][:])
-                        print(ifile[-32:], end='\r')
+                        print(ifile[-33:], end='\r')
                         lons.append(var.variables['lon'][:])
                         lats.append(var.variables['lat'][:])
                     var.close()
