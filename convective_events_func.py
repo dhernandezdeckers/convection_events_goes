@@ -187,6 +187,7 @@ def count_events( events_coords, events_coords_data, ind0, lon_corners, lat_corn
     N_events_mm = np.zeros([12,nx,ny])      # this includes only the peak time step of the events (by month)
     N_events_total_Tmin = np.zeros([nx,ny]) # like N_events_total, but only during the peak time step (probably more useful)
     mean_ssize_Tmin = np.zeros([nx,ny])     # mean size of the event at peak of event (assigned to all gridboxes with BT<T_min at peak of event)
+    mean_ssize_MM_Tmin = np.zeros([12,nx,ny])     # mean size of the event at peak of event (assigned to all gridboxes with BT<T_min at peak of event) by month
     mean_sdur_Tmin = np.zeros([nx,ny])      # mean duration of the event assigned to all gridboxes with BT<T_min at peak of event.
      
     for ind in range(len(events_coords_data)):
@@ -219,9 +220,10 @@ def count_events( events_coords, events_coords_data, ind0, lon_corners, lat_corn
                     N_events_total_Tmin[indlon,indlat]+=1
                     N_events_hh[events_coords_data[ind][-3],indlon,indlat]+=1
                     N_events_mm[events_coords_data[ind][-2]-1,indlon,indlat]+=1
+                    mean_ssize_MM_Tmin[events_coords_data[ind][-2]-1,indlon,indlat] += len(coords_Tmin) # still need to multiply times dx*dy (and divide by N_events_total_Tmin
                     mean_ssize_Tmin[indlon,indlat] += len(coords_Tmin) # still need to multiply times dx*dy (and divide by N_events_total_Tmin
                     mean_sdur_Tmin[indlon,indlat] += events_coords_data[ind][3] # THIS IS NOW DURATION IN MINUTES! (IGNORE THIS:still need to multiply times dt (e.g., 0.5h) and divide by N_events_total_Tmin)
-    return N_events_total, N_events_hh, N_events_mm, N_events_total_Tmin, mean_ssize_Tmin, mean_sdur_Tmin
+    return N_events_total, N_events_hh, N_events_mm, N_events_total_Tmin, mean_ssize_Tmin, mean_sdur_Tmin, mean_ssize_MM_Tmin
 
 def contiguous(ind1, ind2):
     """
@@ -314,6 +316,28 @@ def get_sdursize(ix,iy,nx,ny,data,lon_centers,lat_centers,dTmin2h,min_TRMM_preci
                 mean_ssize_minBTpeak[i,j]   = np.nanmean(data[ind][:,17])
                 median_sdur_minBTpeak[i,j]  = np.nanmedian(data[ind][:,18])
                 median_ssize_minBTpeak[i,j] = np.nanmedian(data[ind][:,17])
+    return mean_sdur_minBTpeak, median_sdur_minBTpeak, mean_ssize_minBTpeak, median_ssize_minBTpeak
+
+def get_sdursize_mm(ix,iy,nx,ny,data,lon_centers,lat_centers,dTmin2h,min_TRMM_precip,max_sizekm2):
+    """
+    Calculate event duration and size (with maximum size max_sizekm2) and assign it only to the 
+    point of the minimum BT (minBT peak), by month
+    """
+    mean_sdur_minBTpeak     = np.zeros([12,nx,ny])
+    median_sdur_minBTpeak   = np.zeros([12,nx,ny])
+    mean_ssize_minBTpeak    = np.zeros([12,nx,ny])
+    median_ssize_minBTpeak  = np.zeros([12,nx,ny])
+    for imm in range(12):
+        for i in ix:
+            for j in iy:
+                lon=lon_centers[i,j]
+                lat=lat_centers[i,j]
+                ind=np.where((data[:,1]==np.round(lon,3))*(data[:,2]==np.round(lat,3))*(data[:,8]<=dTmin2h)*(data[:,16]>=min_TRMM_precip)*(data[:,17]<max_sizekm2)*(data[:,4]==imm+1))
+                if len(ind[0])>=3:
+                    mean_sdur_minBTpeak[imm,i,j]    = np.nanmean(data[ind][:,18])
+                    mean_ssize_minBTpeak[imm,i,j]   = np.nanmean(data[ind][:,17])
+                    median_sdur_minBTpeak[imm,i,j]  = np.nanmedian(data[ind][:,18])
+                    median_ssize_minBTpeak[imm,i,j] = np.nanmedian(data[ind][:,17])
     return mean_sdur_minBTpeak, median_sdur_minBTpeak, mean_ssize_minBTpeak, median_ssize_minBTpeak
 
 def plot_ssize_duration_distr( ssize, sdur, folder='.'):

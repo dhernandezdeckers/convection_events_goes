@@ -250,6 +250,7 @@ else:
     N_events_total_Tmin = np.zeros([nx,ny])     # like N_events_total, but only during the peak time step (probably more useful)
     mean_ssize_Tmin     = np.zeros([nx,ny])     # mean size of the event (assigned to all gridboxes with BT<T_min at peak of event)
     mean_sdur_Tmin      = np.zeros([nx,ny])     # mean duration of the event assigned to all gridboxes with BT<T_min at peak of event. 
+    mean_ssize_MM_Tmin  = np.zeros([12,nx,ny])     # mean size of the event (assigned to all gridboxes with BT<T_min at peak of event) by month
     
     jobs=[]
     if np.mod(len(events_coords_data),njobs)==0:
@@ -272,7 +273,9 @@ else:
         N_events_total_Tmin = N_events_total_Tmin + out[i][3]
         mean_ssize_Tmin     = mean_ssize_Tmin + out[i][4]
         mean_sdur_Tmin      = mean_sdur_Tmin + out[i][5]
+        mean_ssize_MM_Tmin  = mean_ssize_MM_Tmin + out[i][6]
     mean_ssize_Tmin = (mean_ssize_Tmin/N_events_total_Tmin)*area.dx*area.dy # to get the average size in km2
+    mean_ssize_MM_Tmin = (mean_ssize_MM_Tmin/N_events_mm)*area.dx*area.dy
     #mean_sdur_Tmin  = mean_sdur_Tmin*(deltat/60.)/N_events_total_Tmin       # to get the average duration in hours
     mean_sdur_Tmin  = (mean_sdur_Tmin/60)/N_events_total_Tmin       # to get the average duration in hours
     del jobs
@@ -320,6 +323,21 @@ else:
         median_sdur_minBTpeak +=out[i][1]
         mean_ssize_minBTpeak +=out[i][2]
         median_ssize_minBTpeak +=out[i][3]
+
+    # Compute mean and median of storm duration by month, but assign this only to the gridpoint of minimum BT of each event:
+    mean_sdur_minBTpeak_mm     = np.zeros([12,nx,ny])
+    median_sdur_minBTpeak_mm   = np.zeros([12,nx,ny])
+    mean_ssize_minBTpeak_mm    = np.zeros([12,nx,ny])
+    median_ssize_minBTpeak_mm  = np.zeros([12,nx,ny])
+    
+    njobs_tmp=np.min([24,njobs])
+    njobs_iy=int(ny/np.min([24,njobs]))+1
+    out=Parallel(n_jobs=njobs_tmp)(delayed(get_sdursize_mm)(*(np.arange(nx),np.arange(i*njobs_iy,np.min([(i+1)*njobs_iy,ny])),nx,ny,data,area.lon_centers,area.lat_centers,dTmin2h,min_TRMM_precip,max_sizekm2)) for i in range(njobs_tmp))
+    for i in range(njobs_tmp):
+        mean_sdur_minBTpeak_mm +=out[i][0]
+        median_sdur_minBTpeak_mm +=out[i][1]
+        mean_ssize_minBTpeak_mm +=out[i][2]
+        median_ssize_minBTpeak_mm +=out[i][3]
     del data
     gc.collect()
 
@@ -338,6 +356,9 @@ else:
     # This contains the mean storm size, where individual storm sizes have been assigned to the area below BT<Tmin at event peak only
     np.save(folder+'/mean_ssize_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_Tmin)
     
+    # This contains the mean storm size by month, where individual storm sizes have been assigned to the area below BT<Tmin at event peak only
+    np.save(folder+'/mean_ssize_MM_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_MM_Tmin)
+
     # This contains the mean storm duration, where individual storm duration has been assigned to the area below BT<Tmin at event peak only
     np.save(folder+'/mean_sdur_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_Tmin)
     
@@ -349,6 +370,9 @@ else:
     
     np.save(folder+'/mean_ssize_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_minBTpeak) 
     np.save(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak) 
+
+    np.save(folder+'/mean_ssize_minBTpeak_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_minBTpeak_mm) 
+    np.save(folder+'/mean_sdur_minBTpeak_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak_mm) 
     
     print('\n***************\nFinished!\n')
     # Make a plot similar to Fig. 1 in Hernandez-Deckers (2022):
