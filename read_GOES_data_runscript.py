@@ -46,16 +46,16 @@ dhernandezd@unal.edu.co
 
 # ************************************************************************************
 # Main user settings:
-case_name       = 'MM_G13'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
-path            = '/media/Drive/GOES/'  # path to GOES images (netcdf format)
-n_jobs          = 47                    # Number of jobs for parallelization (uses joblib)
+case_name       = 'test_062024'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
+path            = '/media/HD3/GOES16/'  # path to GOES images (netcdf format)
+n_jobs          = 12                    # Number of jobs for parallelization (uses joblib)
 Ea_r            = 6378                  # Earth radius to compute distances from lat lon coordinates
 UTC             = -5                    # Conversion from UTC to local time
-t00             = dt.date(2011,1,1)    # Starting date in datetime format
-tff             = dt.date(2017,12,31)   # Final date in datetime format
-GOES_ver        = '13'                  # '13' (2011-2017) or '16' (2017-)
-days_per_chunk  = 60                    # entire time is splitted in this number of days (limited by available memory!)
-restart_run     = False                  # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
+t00             = dt.date(2018,10,1)    # Starting date in datetime format
+tff             = dt.date(2018,10,5)   # Final date in datetime format
+GOES_ver        = '16'                  # '13' (2011-2017) or '16' (2017-)
+days_per_chunk  = 5                    # entire time is splitted in this number of days (limited by available memory!)
+restart_run     = False                 # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
 
 """
 NOTE:
@@ -67,36 +67,36 @@ For example: path+'/2011/01/goes13.YYYY.DDD.*.nc' for GOES-13
 # ************************************************************************************
 # Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
 # only the grid size and the edge's latitudes and longitudes are required:
-nx      = 16#160#80#66                        # number of gridcells in x
-ny      = 28#212#106#83                       # number of gridcells in y
-Slat    = 4.697#4.84#-2.5#-4.93                      # southern latitude
-Nlat    = 8.703#8.56#12.75#7                     # northern latitude
-Wlon    = -75.19#-75.05#-80#-76                       # western longitude
-Elon    = -72.91#-73.05#-68.5#-66.515                    # eastern longitude
+nx      = 24#16#160#80#66                        # number of gridcells in x
+ny      = 21#28#212#106#83                       # number of gridcells in y
+Slat    = -4.3#4.697#4.84#-2.5#-4.93                      # southern latitude
+Nlat    = -1.281#8.703#8.56#12.75#7                     # northern latitude
+Wlon    = -73#-75.19#-75.05#-80#-76                       # western longitude
+Elon    = -69.55#-72.91#-73.05#-68.5#-66.515                    # eastern longitude
 
 
 # ************************************************************************************
 # If part of the domain wants to be masked (optional), this has to be done manually here.
 mask=np.ones([nx,ny]) # this means no mask (entire grid is used)
 
-# If mask is needed, set masked gridboxes to zero. For example:
-mask[0,:]=0
-mask[1,:]=0
-
-mask[2,:2]=mask[2,9:]=0
-mask[3,:2]=mask[3,11:]=0
-mask[4,:6]=mask[4,15:]=0
-mask[5,:7]=mask[5,17:]=0
-mask[6,:9]=mask[6,17:]=0
-mask[7,:9]=mask[7,19]=mask[7,21:]=0
-mask[8,:10]=mask[8,-2:]=0
-mask[9,:12]=mask[9,-2:]=0
-mask[10,:12]=mask[10,-2:]=0
-mask[11,:14]=mask[11,-3:]=0
-mask[12,:16]=mask[12,-4:]=0
-mask[13,:18]=mask[13,21:]=0
-mask[14,:]=0
-mask[15,:]=0
+## If mask is needed, set masked gridboxes to zero. For example, to do it manually:
+#mask[0,:]=0
+#mask[1,:]=0
+#
+#mask[2,:2]=mask[2,9:]=0
+#mask[3,:2]=mask[3,11:]=0
+#mask[4,:6]=mask[4,15:]=0
+#mask[5,:7]=mask[5,17:]=0
+#mask[6,:9]=mask[6,17:]=0
+#mask[7,:9]=mask[7,19]=mask[7,21:]=0
+#mask[8,:10]=mask[8,-2:]=0
+#mask[9,:12]=mask[9,-2:]=0
+#mask[10,:12]=mask[10,-2:]=0
+#mask[11,:14]=mask[11,-3:]=0
+#mask[12,:16]=mask[12,-4:]=0
+#mask[13,:18]=mask[13,21:]=0
+#mask[14,:]=0
+#mask[15,:]=0
 
 # ************************************************************************************
 # ***************** END OF USER PARAMETERS ********************************************
@@ -164,6 +164,12 @@ if OK or not(restart_run):
             if GOES_ver=='16':
                 #ls_list=os.popen('ls '+ path + '%04d/OR_ABI-L1b-BTmp-M?C13_G16_s%04d%03d'%(t.year,t.year,t.timetuple().tm_yday) + '*_BTCOL.nc').read().split() #one day
                 ls_list=os.popen('ls '+ path + '%04d/OR_ABI-L1b-RadF-M?C13_G16_s%04d%03d'%(t.year,t.year,t.timetuple().tm_yday) + '*_COL.nc').read().split() #one day
+                # confirm that the list is organized cronologically:
+                ls_list2 = []
+                for elem in ls_list:
+                    ls_list2.append(elem[-54:])
+                ind= np.argsort(ls_list2)
+                ls_list = np.asarray(ls_list)[ind]
             elif GOES_ver=='13':
                 ls_list=os.popen('ls '+ path + '%04d/%02d/goes1?.%04d.%03d.'%(t.year,t.month,t.year,t.timetuple().tm_yday) + '*.nc').read().split() #one day
             for ifile in ls_list:

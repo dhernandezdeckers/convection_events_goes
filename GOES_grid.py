@@ -204,7 +204,7 @@ class Grid(object):
                 else:
                     slanted=False #straight grid
                 jobs=[]
-                jj=np.int(T_slice.shape[1]/self.njobs)
+                jj=int(T_slice.shape[1]/self.njobs)
                 j0=0
                 for i in range(self.njobs-1):
                     jobs.append( (self,lons_slice,lats_slice,0,T_slice.shape[0],j0,j0+jj,T_slice,slanted ) )
@@ -223,7 +223,7 @@ class Grid(object):
                 else:
                     T_grid=T_grid/counter
 
-                yr=np.int(date/1000)
+                yr=int(date/1000)
                 timestamp = dt.datetime(yr,1,1)
                 #doy=date-yr*1000-1
                 doy=int(date-yr*1000-1)

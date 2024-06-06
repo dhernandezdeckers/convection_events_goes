@@ -40,7 +40,7 @@ def get_N_events_h(data,nx,ny,min_TRMM_precip,dTmin2h,hh,mask,lon_centers,lat_ce
         ind_lat=np.where(np.round(lat_centers,3)==case[2])[1][0]
         if mask[ind_lon,ind_lat]==1:
             N_events_h[ind_lon,ind_lat]+=1
-    histogram = np.int(np.sum(N_events_h))
+    histogram = int(np.sum(N_events_h))
     return histogram, N_events_h
 
 def get_N_events_m(data,nx,ny,min_TRMM_precip,dTmin2h,mm,mask,lon_centers,lat_centers):
@@ -52,7 +52,7 @@ def get_N_events_m(data,nx,ny,min_TRMM_precip,dTmin2h,mm,mask,lon_centers,lat_ce
         ind_lat=np.where(np.round(lat_centers,3)==case[2])[1][0]
         if mask[ind_lon,ind_lat]==1:
             N_events_m[ind_lon,ind_lat]+=1
-    histogram_m = np.int(np.sum(N_events_m))
+    histogram_m = int(np.sum(N_events_m))
     return histogram_m, N_events_m
 
 def moving_avg(arr,window=3):
@@ -61,12 +61,12 @@ def moving_avg(arr,window=3):
         print('will use window of %d instead (must be odd number)'%(window))
     out_arr=np.ones_like(arr)*np.nan
     for i in range(len(arr)):
-        if (i-np.int((window-1)*0.5))<0:
-            out_arr[i] = np.nanmean(np.append(arr[i-np.int((window-1)*0.5):],arr[:i+np.int((window-1)*0.5)+1]))
-        elif i+np.int((window-1)*0.5)+1>len(arr):
-            out_arr[i] = np.nanmean(np.append(arr[i-np.int((window-1)*0.5):],arr[:i+np.int((window-1)*0.5)+1-len(arr)]))
+        if (i-int((window-1)*0.5))<0:
+            out_arr[i] = np.nanmean(np.append(arr[i-int((window-1)*0.5):],arr[:i+int((window-1)*0.5)+1]))
+        elif i+int((window-1)*0.5)+1>len(arr):
+            out_arr[i] = np.nanmean(np.append(arr[i-int((window-1)*0.5):],arr[:i+int((window-1)*0.5)+1-len(arr)]))
         else:
-            out_arr[i] = np.nanmean(arr[i-np.int((window-1)*0.5):i+np.int((window-1)*0.5)+1])
+            out_arr[i] = np.nanmean(arr[i-int((window-1)*0.5):i+int((window-1)*0.5)+1])
     return out_arr
 
 def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
@@ -159,7 +159,10 @@ def compute_BT( fk1,fk2,bc1,bc2,Lv ):
     # Brightness temperature from radiances, following the GOES-R SERIES PRODUCT DEFINITION 
     # AND USERS' GUIDE (VOL 3) (https://www.goes-r.gov/users/docs/PUG-L1b-vol3.pdf, p.28)
     #*****************************************************************************************
-    return (fk2/np.log((fk1/Lv)+1)-bc1)/bc2
+    c1 = (fk1/Lv)+1
+    c1[np.where(c1<=0)]=np.ma.masked
+    #return (fk2/np.log((fk1/Lv)+1)-bc1)/bc2
+    return (fk2/np.ma.log(c1)-bc1)/bc2
 
 
 def crop_GOES16_file(or_fname, new_fname, s_lat, n_lat, w_lon, e_lon):
