@@ -8,15 +8,15 @@ from joblib import Parallel, delayed
 
 # initial date:
 yy0 = 2023
-mm0 = 1 
-dd0 = 1
+mm0 = 6 
+dd0 = 30
 
 # final date:
 yyf = 2023
-mmf = 6
-ddf = 30
+mmf = 12
+ddf = 31
 
-n_jobs = 12
+n_jobs = 24
 
 crop = True
 
@@ -58,36 +58,42 @@ def get_crop_GOESR_period(sdate,edate,s_lat,n_lat,w_lon,e_lon):
             existing_files = os.listdir(path+'/%04d/'%(iyear)) # to avoid downloading a previously downloaded file
         iday = idate.timetuple().tm_yday
         for hh in range(24):
-            files = np.array(fs.ls('noaa-goes16/ABI-L1b-RadF/%04d/%03d/%02d/'%(iyear,iday,hh)))
-            for ifile in files:
-                fname = ifile.split('/')[-1]
-                if fname in existing_files or fname[:-3]+'_COL.nc' in existing_files:
-                    print(ifile + ' already exists. Will skip download!')
-                else:
-                    if fname[18:21]=='C13':
-                        try:
-                            # DOWNLOAD ORIGINAL FILE:
-                            fs.get(ifile,path+'/%04d/'%(iyear)+fname)
-                            print('Downloaded '+ifile)
-                        except:
-                            print('Could not download '+ifile)
-                if crop and fname[18:21]=='C13':
-                    # CROP REGION:
-                    newfile_name = fname[:-3]+'_COL.nc'
-                    if newfile_name in existing_files:
-                        print(newfile_name+' already exists. Will skip!')
+            try:
+                files = np.array(fs.ls('noaa-goes16/ABI-L1b-RadF/%04d/%03d/%02d/'%(iyear,iday,hh)))
+                go_on = True
+            except Exception as error:
+                print(error)
+                go_on = False
+            if go_on:
+                for ifile in files:
+                    fname = ifile.split('/')[-1]
+                    if fname in existing_files or fname[:-3]+'_COL.nc' in existing_files:
+                        print(ifile + ' already exists. Will skip download!')
                     else:
-                        or_file = path+'/%04d/'%(iyear)+fname
-                        print('processing '+or_file)
-                        newfile = path+'/%04d/'%(iyear)+newfile_name
-                        success = crop_GOES16_file(or_file, newfile, s_lat, n_lat, w_lon, e_lon)
-                        #success = compute_BT_and_crop(or_file, newfile, s_lat, n_lat, w_lon, e_lon, fillvalue, crop)
-                        if success:
-                            print('cropped successfully '+fname)
-                            if REMOVE_ORIGINAL_FILES:
-                                os.remove(or_file)
+                        if fname[18:21]=='C13':
+                            try:
+                                # DOWNLOAD ORIGINAL FILE:
+                                fs.get(ifile,path+'/%04d/'%(iyear)+fname)
+                                print('Downloaded '+ifile)
+                            except:
+                                print('Could not download '+ifile)
+                    if crop and fname[18:21]=='C13':
+                        # CROP REGION:
+                        newfile_name = fname[:-3]+'_COL.nc'
+                        if newfile_name in existing_files:
+                            print(newfile_name+' already exists. Will skip!')
                         else:
-                            print('Could not process '+fname)
+                            or_file = path+'/%04d/'%(iyear)+fname
+                            print('processing '+or_file)
+                            newfile = path+'/%04d/'%(iyear)+newfile_name
+                            success = crop_GOES16_file(or_file, newfile, s_lat, n_lat, w_lon, e_lon)
+                            #success = compute_BT_and_crop(or_file, newfile, s_lat, n_lat, w_lon, e_lon, fillvalue, crop)
+                            if success:
+                                print('cropped successfully '+fname)
+                                if REMOVE_ORIGINAL_FILES:
+                                    os.remove(or_file)
+                            else:
+                                print('Could not process '+fname)
         idate=idate+dt.timedelta(days=1)
         counter+=1
     return counter

@@ -20,14 +20,16 @@ class Grid(object):
         self.ER     = ER        # Earth Radius at particular region (for computing distances from lat lon coordinates)
         self.UTC_OFFSET = UTC   # Conversion from UTC to local time (-5 for Colombian local time)
         self._measure_grid()
-        self.maxlat = np.max([self.ullat,self.urlat])+1
-        self.minlat = np.min([self.lllat,self.lrlat])-1
-        self.minlon = np.min([self.lllon,self.ullon])-1
-        self.maxlon = np.max([self.lrlon,self.urlon])+1
+        self.maxlat = np.max([self.ullat,self.urlat])+1 # for plots?
+        self.minlat = np.min([self.lllat,self.lrlat])-1 # for plots?
+        self.minlon = np.min([self.lllon,self.ullon])-1 # for plots?
+        self.maxlon = np.max([self.lrlon,self.urlon])+1 # for plots?
         self.nx     = nx
         self.ny     = ny
         self._create_grid()
-        self._create_regular_grid()
+        #self.dlon = (self.maxlon - self.minlon)/self.nx
+        #self.dlat = (self.maxlat - self.minlat)/self.ny
+        #self._create_regular_grid(dx=self.dlon,dy=self.dlat)
         self.dx= ((self.lrlon-self.lllon)*np.pi/180.)*self.ER/nx
         self.dy= ((self.urlat-self.lrlat)*np.pi/180.)*self.ER/ny
         print('gridboxes are %.2f x %.2f km\n'%(self.dx,self.dy))
@@ -140,14 +142,14 @@ class Grid(object):
         else:
             return ((-9999,-9999),False)
 
-    def _create_regular_grid(self,dx=0.005,dy=0.005):
-        """
-        create a regular grid that covers the grid area but can be used for plotting with a NxM array. 
-        dx and dy are the regular grid spacing in degrees
-        """
-        meshx=np.arange(self.minlon,self.maxlon+dx,dx)
-        meshy=np.arange(self.minlat,self.maxlat+dy,dy)
-        self.meshlon, self.meshlat = np.meshgrid(meshx,meshy)
+    #def _create_regular_grid(self,dx=0.005,dy=0.005):
+    #    """
+    #    create a regular grid that covers the grid area but can be used for plotting with a NxM array. 
+    #    dx and dy are the regular grid spacing in degrees
+    #    """
+    #    meshx=np.arange(self.minlon,self.maxlon+dx,dx)
+    #    meshy=np.arange(self.minlat,self.maxlat+dy,dy)
+    #    self.meshlon, self.meshlat = np.meshgrid(meshx,meshy)
 
 
     def extract_data(var):

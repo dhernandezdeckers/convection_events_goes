@@ -52,9 +52,9 @@ n_jobs          = 12                    # Number of jobs for parallelization (us
 Ea_r            = 6378                  # Earth radius to compute distances from lat lon coordinates
 UTC             = -5                    # Conversion from UTC to local time
 t00             = dt.date(2018,10,1)    # Starting date in datetime format
-tff             = dt.date(2018,10,5)   # Final date in datetime format
+tff             = dt.date(2018,10,3)    # Final date in datetime format
 GOES_ver        = '16'                  # '13' (2011-2017) or '16' (2017-)
-days_per_chunk  = 5                    # entire time is splitted in this number of days (limited by available memory!)
+days_per_chunk  = 1                     # entire time is splitted in this number of days (limited by available memory!)
 restart_run     = False                 # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
 
 """

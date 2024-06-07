@@ -539,7 +539,7 @@ def find_delta_t(time):
     for i in range(1,100):
         Dt.append((dt.datetime(*time[i])-t0).total_seconds())
         t0 = dt.datetime(*(time[i]))
-    return stats.mode(Dt)[0][0]/60
+    return stats.mode(Dt).mode/60
 
 
 
