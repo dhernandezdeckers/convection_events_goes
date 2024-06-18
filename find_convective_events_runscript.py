@@ -243,10 +243,11 @@ else:
 
     def save_events_data_netcdf4(area, events_valid, time):
         # save a netcdf file with events:
+        # UNDER CONSTRUCTION!!! 18.06.2024
         from netCDF4 import Dataset
         from datetime import datetime, timedelta
         from cftime import num2date, date2num
-        odata = Dataset('conv_events_nxny%d%d.nc'%(nx,ny), mode='w',format='NETCDF4')
+        odata = Dataset(folder+'/conv_events_nxny%d%d.nc'%(nx,ny), mode='w',format='NETCDF4')
         #delta_t = find_delta_t(time)
         t_dim   = odata.createDimension('time', len(time) ) # time coordinate
         t_unlim = odata.createDimension('time_unlimited', None ) # unlimited time for individual events
@@ -257,51 +258,70 @@ else:
         for i in range(len(time)):
             datetimes.append(datetime(*time[i]))
         
-        time_var = odata.createVariable('time','f4', ('time'))
+        time_var = odata.createVariable('time',np.float64, ('time'))
         time_var.standard_name='time'
         time_var.units ='hours since 2011-01-01 00:00:00.0'
         time_var.calendar='proleptic_gregorian'
         time_var[:] = date2num(datetimes,units=time_var.units,calendar=time_var.calendar)
         
-        lat = odata.createVariable('lat', 'f4', ('lat',))
+        lat = odata.createVariable('lat', np.float64, ('lat',))
         lat.units = 'degrees_north'
         lat.long_name = 'latitude'
-        lon = odata.createVariable('lon', 'f4', ('lon',))
+        lon = odata.createVariable('lon', np.float64, ('lon',))
         lon.units = 'degrees_east'
         lon.long_name = 'longitude'
-        CE_ind1   = odata.createVariable('ind1','f4',('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tmin
+        CE_ind1   = odata.createVariable('ind1',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tmin
         CE_ind1.units = 'id'
         CE_ind1.long_name = 'event id BT<Tmin'
-        CE_ind2   = odata.createVariable('ind2','i4',('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tminmin
-        CE_ind2.units = 'id'
-        CE_ind2.long_name = 'event id BT<Tminmin'
-        CE_peakBTtrack  = odata.createVariable('peakBTtrack','i4',('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridbox with peak BT (center?)
+        #CE_ind2   = odata.createVariable('ind2',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tminmin
+        #CE_ind2.units = 'id'
+        #CE_ind2.long_name = 'event id BT<Tminmin'
+        
+        CE_peakBTtrack  = odata.createVariable('peakBTtrack',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridbox with peak BT (center?)
         CE_peakBTtrack.units = 'id'
         CE_peakBTtrack.long_name = 'event id along track of BTpeak'
-        CE_peakBT = odata.createVariable('peakBT','f4',('event','time_unlimited',)) # minimum BT of each event
+        
+        CE_peakBT = odata.createVariable('peakBT',np.float64,('event','time_unlimited',)) # minimum BT of each event
         CE_peakBT.units = 'K'
         CE_peakBT.long_name = 'minimum brightness temperature over time'
-        CE_DTmax  = odata.createVariable('DT','f4',('event',)) # maximum change in BT of each event
+        
+        CE_DTmax  = odata.createVariable('DT',np.float64,('event',)) # maximum change in BT of each event
         CE_DTmax.units = 'K/h'
         CE_DTmax.long_name = 'maximum peak BT change of event'
 
+        CE_DTtrack  = odata.createVariable('DTtrack',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridbox with max change in BT (DT) (center?)
+        CE_DTtrack.units = 'id'
+        CE_DTtrack.long_name = 'event id along track of max DT'
+
         lat[:] = area.lat_centers[0,:]
         lon[:] = area.lon_centers[:,0]
-
+        CE_DTtrack[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
+        CE_peakBTtrack[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
+        CE_ind1[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
         for i_ev in range(len(events_valid)):
             for i_t in range(len(events_valid[i_ev].t)):
                 tmp = date2num(datetime(*events_valid[i_ev].t[i_t]),units=time_var.units,calendar=time_var.calendar)
                 time_index = np.where(time_var[:]==tmp)[0][0]
                 points = np.asarray(events_valid[i_ev].coords[i_t])
-                indices = np.ones_like(points)*np.nan
+                #indices = np.ones_like(points)*np.nan
                 for i in range(points.shape[0]):#len(points[:,0])):
                     dist1 = np.abs(lon[:] - points[i,0])
                     dist2 = np.abs(lat[:] - points[i,1])
                     ind1 = int(np.where(dist1==np.min(dist1))[0][0])
                     ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-                    CE_ind1[time_index,ind2,ind1]=i_ev+1
-
-        pdb.set_trace()
+                    CE_ind1[time_index,ind2,ind1] = i_ev + 1
+                lonpeak, latpeak, minBT = events_valid[i_ev].peaks[i_t][:3]
+                dist1 = np.abs(lon[:] - lonpeak)
+                dist2 = np.abs(lat[:] - latpeak)
+                ind1 = int(np.where(dist1==np.min(dist1))[0][0])
+                ind2 = int(np.where(dist2==np.min(dist2))[0][0])
+                CE_peakBTtrack[time_index,ind2,ind1] = i_ev + 1
+                CE_peakBT[i_ev,i_t] = minBT
+                CE_DTmax[i_ev] = events_valid[i_ev].dT
+                tmp = date2num(datetime(*events_valid[i_ev].dT_t),units=time_var.units,calendar=time_var.calendar)
+                time_index = np.where(time_var[:]==tmp)[0][0]
+                ind1, ind2 = events_valid[i_ev].dT_coord
+                CE_DTtrack[time_index,ind2,ind1] = i_ev + 1
 
         odata.close()
     
