@@ -49,7 +49,7 @@ dhernandezd@unal.edu.co
 # Main settings:
 # (should match those used in read_GOES_data.py)
 # **********************************************************
-case_name   = 'test_062024'#MM_G13'#'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
+case_name   = 'magdalena_cauca_G16'#'test_062024'#MM_G13'#'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
 #nx          = 14#160#80#66        # study area grid size
 #ny          = 26#212#106#83
 #deltat      = 15        # time interval between GOES images in minutes
@@ -75,7 +75,7 @@ max_sizekm2 = 300000
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = .1
+min_TRMM_precip = 0#.1
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):

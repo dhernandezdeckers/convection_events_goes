@@ -17,9 +17,9 @@ import cartopy.crs as ccrs
 # **********************************************************
 # case parameters (should match those used in read_GOES_data.py and find_convective_events.py)
 # **********************************************************
-case_name   = 'MM_G13'#'NWSA'#GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
-nx          = 16#80#160#80#66        # study area grid size
-ny          = 28#106#212#106#83
+case_name   = 'magdalena_cauca_G16'#'MM_G13'#'NWSA'#GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
+nx          = 40#38#16#80#160#80#66        # study area grid size
+ny          = 73#55#28#106#212#106#83
 
 #**********************************************************
 # Parameters for convective event identification:
@@ -39,7 +39,7 @@ dt_max          = 1
 # minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
 # (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
 # set to >0 if yes):
-min_TRMM_precip = 0.1
+min_TRMM_precip = 0#0.1
 
 # Path where TRMM 3-hourly precipitation data (netcdf format) is located
 # (only needed if min_TRMM_precip set to >0):
@@ -57,8 +57,8 @@ print_areas = False
 max_sizekm2 = 300000    # convective systems larger than this will be discarded for some analyses
 
 # coordinate limits for plots:
-lllat = -2.15#-4.5
-urlat = 12.7#7
+lllat = 0#-2.15#-4.5
+urlat = 12#12.7#7
 lllon = -79.95#-76
 urlon = -68.9#-66.8
 
@@ -101,7 +101,8 @@ else:
     time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
     area    = pickle.load( open(folder+'/area_nxny%d%d.p'%(nx,ny),'rb'),encoding='latin1')
     print('gridboxes are %.2f x %.2f km\n'%(area.dx,area.dy))
-np.warnings.filterwarnings('ignore')
+import warnings
+warnings.filterwarnings('ignore')
 
 cmap = plt.get_cmap('jet')
 jet2 = truncate_colormap(cmap, 0.4, 1)
@@ -413,13 +414,13 @@ for j in range(area.ny-box_size+1):
     out = Parallel(n_jobs=(area.nx-box_size+1))(delayed(get_histograms_box)(*[data,lat_s,lat_n,area.lon_corners[:,0][i],area.lon_corners[:,0][i+box_size],min_TRMM_precip,dTmin2h]) for i in range(area.nx-box_size+1))
     for i in range(area.nx-box_size+1):
         ft = abs(np.fft.rfft(moving_avg(out[i][0])))
-        S0[i+np.int(0.5*(box_size-1)),j+np.int(0.5*(box_size-1))]=np.log(ft[0]/(ft[1]+ft[2]))
-        S1[i+np.int(0.5*(box_size-1)),j+np.int(0.5*(box_size-1))]=np.log(ft[1]/ft[2])#(ft[1]-ft[2])/ft[0]
-        S2[i+np.int(0.5*(box_size-1)),j+np.int(0.5*(box_size-1))]=np.log(ft[2]/ft[1])
+        S0[i+int(0.5*(box_size-1)),j+int(0.5*(box_size-1))]=np.log(ft[0]/(ft[1]+ft[2]))
+        S1[i+int(0.5*(box_size-1)),j+int(0.5*(box_size-1))]=np.log(ft[1]/ft[2])#(ft[1]-ft[2])/ft[0]
+        S2[i+int(0.5*(box_size-1)),j+int(0.5*(box_size-1))]=np.log(ft[2]/ft[1])
         if (ft[1]/ft[2])>1.5:
-            month_max_1[i+np.int(0.5*(box_size-1)),j+np.int(0.5*(box_size-1))]=out[i][1]
+            month_max_1[i+int(0.5*(box_size-1)),j+int(0.5*(box_size-1))]=out[i][1]
         if (ft[2]/ft[1])>1.5:
-            month_max_2[i+np.int(0.5*(box_size-1)),j+np.int(0.5*(box_size-1))]=out[i][1]
+            month_max_2[i+int(0.5*(box_size-1)),j+int(0.5*(box_size-1))]=out[i][1]
 print('')
 fig=plt.figure(figsize=(13.3,5.8))
 gs=gridspec.GridSpec(12, 6, left=0.03, right=0.99, hspace=0.11, wspace=0.01, top=0.95, bottom=0.095, width_ratios=[1.5,1.5,0.25,1.05,0.14,1.05])#,height_ratios=[h0,h1,h0,h1,h0,h1,h0,h1,h0,h1,h0,h1])

@@ -46,13 +46,13 @@ dhernandezd@unal.edu.co
 
 # ************************************************************************************
 # Main user settings:
-case_name       = 'test_062024'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
-path            = '/media/HD3/GOES16/'  # path to GOES images (netcdf format)
-n_jobs          = 12                    # Number of jobs for parallelization (uses joblib)
+case_name       = 'magdalena_cauca_G16'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
+path            = '/media/HD3/GOES16/'#'/media/HD3/GOES16/'  # path to GOES images (netcdf format)
+n_jobs          = 16                    # Number of jobs for parallelization (uses joblib)
 Ea_r            = 6378                  # Earth radius to compute distances from lat lon coordinates
 UTC             = -5                    # Conversion from UTC to local time
-t00             = dt.date(2018,10,1)    # Starting date in datetime format
-tff             = dt.date(2018,10,3)    # Final date in datetime format
+t00             = dt.date(2018,1,1)    # Starting date in datetime format
+tff             = dt.date(2023,12,31)    # Final date in datetime format
 GOES_ver        = '16'                  # '13' (2011-2017) or '16' (2017-)
 days_per_chunk  = 1                     # entire time is splitted in this number of days (limited by available memory!)
 restart_run     = False                 # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
@@ -67,12 +67,12 @@ For example: path+'/2011/01/goes13.YYYY.DDD.*.nc' for GOES-13
 # ************************************************************************************
 # Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
 # only the grid size and the edge's latitudes and longitudes are required:
-nx      = 24#16#160#80#66                        # number of gridcells in x
-ny      = 21#28#212#106#83                       # number of gridcells in y
-Slat    = -4.3#4.697#4.84#-2.5#-4.93                      # southern latitude
-Nlat    = -1.281#8.703#8.56#12.75#7                     # northern latitude
-Wlon    = -73#-75.19#-75.05#-80#-76                       # western longitude
-Elon    = -69.55#-72.91#-73.05#-68.5#-66.515                    # eastern longitude
+nx      = 40#24#16#160#80#66                        # number of gridcells in x
+ny      = 73#21#28#212#106#83                       # number of gridcells in y
+Slat    = 1.#-4.3#4.697#4.84#-2.5#-4.93                      # southern latitude
+Nlat    = 11.5#-1.281#8.703#8.56#12.75#7                     # northern latitude
+Wlon    = -77.5#-73#-75.19#-75.05#-80#-76                       # western longitude
+Elon    = -71.75#-69.55#-72.91#-73.05#-68.5#-66.515                    # eastern longitude
 
 
 # ************************************************************************************

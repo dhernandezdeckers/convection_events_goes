@@ -7,12 +7,12 @@ from extras import *
 from joblib import Parallel, delayed
 
 # initial date:
-yy0 = 2023
-mm0 = 6 
-dd0 = 30
+yy0 = 2024
+mm0 = 1 
+dd0 = 1
 
 # final date:
-yyf = 2023
+yyf = 2024
 mmf = 12
 ddf = 31
 
