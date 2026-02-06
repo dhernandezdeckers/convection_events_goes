@@ -45,17 +45,26 @@ dhernandezd@unal.edu.co
 """
 
 # ************************************************************************************
-# Main user settings:
-case_name       = 'magdalena_cauca_G16'#'GOES16_2018-2022_HR2'    # optional, for file names. Can also be left blank ('')
-path            = '/media/HD3/GOES16/'#'/media/HD3/GOES16/'  # path to GOES images (netcdf format)
-n_jobs          = 16                    # Number of jobs for parallelization (uses joblib)
-Ea_r            = 6378                  # Earth radius to compute distances from lat lon coordinates
-UTC             = -5                    # Conversion from UTC to local time
-t00             = dt.date(2018,1,1)    # Starting date in datetime format
-tff             = dt.date(2023,12,31)    # Final date in datetime format
-GOES_ver        = '16'                  # '13' (2011-2017) or '16' (2017-)
+# Main user settings are read from namelist.txt file (should be located in same path as this script):
+# ************************************************************************************
+
+param_dict = read_namelist_parameters()
+case_name   = param_dict['case_name']
+nx          = int(param_dict['nx'])
+ny          = int(param_dict['ny'])
+Slat        = float(param_dict['Slat'])
+Nlat        = float(param_dict['Nlat'])
+Wlon        = float(param_dict['Wlon'])
+Elon        = float(param_dict['Elon'])
+path        = param_dict['path']
+n_jobs      = int(param_dict['n_jobs'])
+Ea_r        = float(param_dict['Ea_r'])
+UTC         = int(param_dict['UTC'])
+t00         = dt.datetime.strptime(param_dict['t00'],'%Y-%m-%d').date()
+tff         = dt.datetime.strptime(param_dict['tff'],'%Y-%m-%d').date()
+GOES_ver    = param_dict['GOES_ver']
+restart_run = (param_dict['restart_run']=='True')
 days_per_chunk  = 1                     # entire time is splitted in this number of days (limited by available memory!)
-restart_run     = False                 # if job has been killed at some point, this allows to use previously saved files (T_grid and time)
 
 """
 NOTE:
@@ -63,17 +72,6 @@ GOES images should be stored in "path", each year in one folder, each month in o
 For example: path+'/2011/01/goes13.YYYY.DDD.*.nc' for GOES-13
 (where DDD is day of year)
 """
-
-# ************************************************************************************
-# Parameters for defining the study area. Since it is a 'rectangular' lat lon grid, 
-# only the grid size and the edge's latitudes and longitudes are required:
-nx      = 40#24#16#160#80#66                        # number of gridcells in x
-ny      = 73#21#28#212#106#83                       # number of gridcells in y
-Slat    = 1.#-4.3#4.697#4.84#-2.5#-4.93                      # southern latitude
-Nlat    = 11.5#-1.281#8.703#8.56#12.75#7                     # northern latitude
-Wlon    = -77.5#-73#-75.19#-75.05#-80#-76                       # western longitude
-Elon    = -71.75#-69.55#-72.91#-73.05#-68.5#-66.515                    # eastern longitude
-
 
 # ************************************************************************************
 # If part of the domain wants to be masked (optional), this has to be done manually here.
@@ -102,7 +100,6 @@ mask=np.ones([nx,ny]) # this means no mask (entire grid is used)
 # ***************** END OF USER PARAMETERS ********************************************
 # ************************************************************************************
 
-
 # ************************************************************************************
 # create Grid object:
 area=grid.Grid( Slat, Elon, Nlat, Wlon, nx=nx, ny=ny, ER=Ea_r, UTC=UTC, case_name=case_name )
@@ -113,12 +110,17 @@ folder='CONVECTION_'+case_name
 if not os.path.exists(folder):
     os.makedirs(folder)
 
+# write parameters to file:
+param_file = open(folder+'/parameters.txt', 'w')
+param_file.writelines(['\ncase_name = '+case_name,'\npath = '+path,'\nn_jobs = %d'%(n_jobs),'\nEa_r=%.1f'%(Ea_r),'\nUTC=%d'%(UTC),'\nt00='+str(t00),'\ntff='+str(tff),'\nGOES_ver='+GOES_ver,'\ndays_per_chunk=%d'%(days_per_chunk),'\nnx=%d'%(nx),'\nny=%d'%(ny),'\nSlat=%.2f'%(Slat),'\nNlat=%.2f'%(Nlat),'\nWlon=%.2f'%(Wlon),'\nElon=%.2f'%(Elon)])
+param_file.close()
+
 # plot the grid on a map to visualize it:
 area.plot_area(lllat=Slat-0.5, urlat=Nlat+0.5,lllon=Wlon-0.5,urlon=Elon+0.5,fname=folder+'/domain.png')
 
 # ************************************************************************************
 # Grid object is saved to a file (for later use in other scripts)
-pickle.dump( area, open(folder+'/area_nxny%d%d.p'%(nx,ny),'wb'))
+pickle.dump( area, open(folder+'/area_'+case_name+'.p','wb'))
 
 # ************************************************************************************
 # read in chunks of days_per_chunk days
@@ -128,22 +130,22 @@ counter_files=0
 OK = True
 if restart_run:  #find the last saved file, and start reading on the next day
     print('Will use previously saved T_grid and time files.')
-    os.system('ls '+ folder+'/time_nxny%d%d_????.npy>ls.txt'%(nx,ny))
+    os.system('ls '+ folder+'/time_'+case_name+'_????.npy>ls.txt')
     ls_file = open('ls.txt','r')
     lines=ls_file.readlines()
     ls_file.close()
     os.remove('ls.txt')
     if len(lines)>0:
-        ls_list=os.popen('ls '+ folder+'/time_nxny%d%d_????.npy'%(nx,ny)).read().split()
+        ls_list=os.popen('ls '+ folder+'/time_'+case_name+'_????.npy').read().split()
         counter_files = int(ls_list[-1][-8:-4])
-        if os.path.isfile(folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,counter_files)):
-            time = np.load(folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,counter_files))[-1]
+        if os.path.isfile(folder+'/T_grid_'+case_name+'_%04d.npy'%(counter_files)):
+            time = np.load(folder+'/time_'+case_name+'_%04d.npy'%(counter_files))[-1]
             t00=dt.datetime(*time).date()+dt.timedelta(days=1)
             OK = True
             print('Found %d files. Will continue with file %d on '%(counter_files,counter_files+1)+ t00.strftime("%m/%d/%Y"))
             counter_files+=1
         else:
-            print('******ERROR: please check that both T_grid_nxny..*.npy and time_nxny..*.npy are present, and run again!\n')
+            print('******ERROR: please check that both T_grid_*.npy and time_*.npy are present, and run again!\n')
             OK = False
     else:
         print("please set 'restart_run' to False!")
@@ -220,8 +222,8 @@ if OK or not(restart_run):
         for i in range(n_jobs):
             T_grid.extend(out[i][0])
             time.extend(out[i][1])
-        np.save(folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,counter_files),np.asarray(T_grid))
-        np.save(folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,counter_files),np.asarray(time))
+        np.save(folder+'/T_grid_'+case_name+'_%04d.npy'%(counter_files),np.asarray(T_grid))
+        np.save(folder+'/time_'+case_name+'_%04d.npy'%(counter_files),np.asarray(time))
         del jobs
         del lons
         del lats
@@ -239,10 +241,10 @@ if OK or not(restart_run):
     T_grid = []
     time = []
     for i in range(counter_files):
-        T_grid.extend(np.load(folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,i)))
-        time.extend(np.load(folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,i)))
-        os.system('rm '+folder+'/T_grid_nxny%d%d_%04d.npy'%(nx,ny,i))
-        os.system('rm '+folder+'/time_nxny%d%d_%04d.npy'%(nx,ny,i))
+        T_grid.extend(np.load(folder+'/T_grid_'+case_name+'_%04d.npy'%(i)))
+        time.extend(np.load(folder+'/time_'+case_name+'_%04d.npy'%(i)))
+        os.system('rm '+folder+'/T_grid_'+case_name+'_%04d.npy'%(i))
+        os.system('rm '+folder+'/time_'+case_name+'_%04d.npy'%(i))
     T_grid=np.asarray(T_grid)
     time=np.asarray(time)
     
@@ -267,5 +269,5 @@ if OK or not(restart_run):
     T_grid2=np.asarray(T_grid2)
     time2=np.asarray(time2)
     
-    np.save(folder+'/T_grid_nxny%d%d.npy'%(nx,ny),T_grid2)  # THIS ARRAY CONTAINS THE GRIDDED BT
-    np.save(folder+'/time_nxny%d%d.npy'%(nx,ny),time2)      # THIS ARRAY CONTAINS THE TIME INFORMATION OF THE GRIDDED BT
+    np.save(folder+'/T_grid_'+case_name+'.npy',T_grid2)  # THIS ARRAY CONTAINS THE GRIDDED BT
+    np.save(folder+'/time_'+case_name+'.npy',time2)      # THIS ARRAY CONTAINS THE TIME INFORMATION OF THE GRIDDED BT

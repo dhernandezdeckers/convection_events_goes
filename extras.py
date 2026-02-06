@@ -3,6 +3,24 @@ from netCDF4 import Dataset
 import datetime as dt
 import pdb
 
+def read_namelist_parameters(fname='namelist.txt'):
+    """
+    reads all main parameters for event identification and tracking
+    and returns them in a dictionary
+    """
+    namelist = open(fname,'r')
+    lines = namelist.readlines()
+
+    i=0
+    params = {}
+    while i<len(lines):
+        if not(lines[i][0] in ['#','\n',' ']):
+            line=(lines[i].split('#')[0]).replace(' ','').strip().split('=')
+            if len(line)==2:
+               params[line[0]]=line[1] 
+        i+=1
+    return params
+
 def joblib_get_hmax_TRMM(i,ny,mask,lon_corners,lat_corners,data,min_TRMM_precip,dTmin2h):
     H_max = np.ones(ny)*np.nan
     for j in range(ny-2):

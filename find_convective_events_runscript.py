@@ -3,6 +3,7 @@ import pickle
 import pdb
 from joblib import Parallel, delayed
 from convective_events_func import *
+from extras import *
 import gc
 import os
 
@@ -45,49 +46,24 @@ D. Hernández-Deckers - 2022
 dhernandezd@unal.edu.co
 """
 
-# **********************************************************
-# Main settings:
-# (should match those used in read_GOES_data.py)
-# **********************************************************
-case_name   = 'magdalena_cauca_G16'#'test_062024'#MM_G13'#'GOES16_2018-2022_HR'#NWSA' #'orinoco_amazonas'    # optional, for file names. Default is ''
-#nx          = 14#160#80#66        # study area grid size
-#ny          = 26#212#106#83
-#deltat      = 15        # time interval between GOES images in minutes
-
 #**********************************************************
-# Parameters for convective event identification:
+# Parameters for convective event identification (from namelist.txt):
 #**********************************************************
-# threshold for brightness temperature of broader convective event area (in K):
-T_min           = 235
+param_dict = read_namelist_parameters()
+case_name       = param_dict['case_name']  
+T_min           = float(param_dict['T_min'])
+T_minmin        = float(param_dict['T_minmin'])
+dTmin2h         = float(param_dict['dTmin2h'])
+dt_max          = float(param_dict['dt_max'])
+max_sizekm2     = float(param_dict['max_sizekm2'])
+min_TRMM_precip = float(param_dict['min_TRMM_precip'])
+TRMM_data_path  = param_dict['TRMM_data_path']
+njobs           = int(param_dict['njobs'])
+UTC_offset      = -int(param_dict['UTC'])
+Ea_r            = float(param_dict['Ea_r'])
 
-# threshold for brightness temperature that must be found within the broader area at least at one gridbox (in K):
-T_minmin        = 210
-
-# threshold for minimun decrease in brightness temperature in 2 hours (in K)
-dTmin2h         = -50
-
-# maximum time difference in hours between two colocated systems to be considered the same event
-dt_max          = 1
-
-# Maximum size (in km^2) of convective systems (to get a better estimate of the "mean" event size, events larger than this value are noexcluded for this. This value will depend on typical events of interest, domain size, etc.!)
-max_sizekm2 = 300000
-
-# minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
-# (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
-# set to >0 if yes):
-min_TRMM_precip = 0#.1
-
-# Path where TRMM 3-hourly precipitation data (netcdf format) is located
-# (only needed if min_TRMM_precip set to >0):
-TRMM_data_path  = '/media/HD3/TRMM_3HR/netcdf/'
-
-# number of jobs for parallelization (joblib):
-njobs           = 48
-
-# conversion from local to UTC time (hours) (only needed for TRMM data):
-UTC_offset      = 5
 # ************************************************************************************
-# ***************** END OF USER PARAMTERS ********************************************
+# ***************** END OF PARAMTER READING ******************************************
 # ************************************************************************************
 
 
@@ -97,12 +73,12 @@ if not os.path.exists(folder):
     print('You must first run the sript read_GOES_data_runscript.py!!')
     print("If yes, check 'case_name' and run again.")
 else:
-    fname = os.popen('ls '+folder+'/T_grid_nxny*.npy').read().split()
+    fname = os.popen('ls '+folder+'/T_grid_'+case_name+'.npy').read().split()
     if len(fname)==1:
         T_grid = np.load(fname[0])
-        fn = os.popen('ls '+folder+'/time_nxny*.npy').read().strip()
+        fn = os.popen('ls '+folder+'/time_'+case_name+'.npy').read().strip()
         time = np.load(fn)
-        fn = os.popen('ls '+folder+'/area_nxny*.p').read().strip()
+        fn = os.popen('ls '+folder+'/area_'+case_name+'.p').read().strip()
         area = pickle.load( open(fn, 'rb'), encoding='latin1')
         nx = area.nx
         ny = area.ny
@@ -113,11 +89,11 @@ else:
         print('Please enter values for nx and ny:')
         nx = int(input('nx= '))
         ny = int(input('ny= '))
-        T_grid  = np.load(folder+'/T_grid_nxny%d%d.npy'%(nx,ny))
-        time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
-        area    = pickle.load( open(folder+'/area_nxny%d%d.p'%(nx,ny),'rb'),encoding='latin1')
+        T_grid  = np.load(folder+'/T_grid_'+case_name+'.npy')
+        time    = np.load(folder+'/time_'+case_name+'.npy')
+        area    = pickle.load( open(folder+'/area_'+case_name+'.p','rb'),encoding='latin1')
     print(case_name)
-    print('gridboxes are %.2f x %.2f km\n'%(area.dx,area.dy))
+    print('\ngridboxes are %.2f x %.2f km'%(area.dx,area.dy))
     
     #np.warnings.filterwarnings('ignore')
     
@@ -168,16 +144,19 @@ else:
     for i in range(len(out)):
         events.extend(out[i])
     
-    """
-    For each event, find the largest decrease in brightness temperature (BT) during 2 hours
-    within a window of up to 3 hours before the corresponding peak:
-    """
+
     i_ev = 0
     for event in events:
+        """
+        For each event, find the largest decrease in brightness temperature (BT) during 2 hours
+        within a window of up to 3 hours before the corresponding peak:
+        """
         print('%04d/%d'%(i_ev+1,len(events)),end='\r')
         dT=[]
         dT_t=[]
         dT_coord=[]
+        #assign a unique identifier (int):
+        event.id = i_ev
         #for each event, record the steepest T decrease in 2h in any of the peaks up to 3 hours before the corresponding peak:
         for i in range(len(event.peaks)):
             ind_lon=np.where(np.round(area.lon_centers,3)==event.peaks[i][0])[0][0]
@@ -228,120 +207,40 @@ else:
         ind_dT=np.where(np.asarray(dT)==np.min(np.asarray(dT)))[0][0]
         event.add_dT2h(dT[ind_dT],time[dT_t[ind_dT]],dT_coord[ind_dT])
         i_ev+=1
-    print('\nDone!!')
-    del T_grid
-    gc.collect()
+    print('\nDone!')
+
+    # ************************************************************************************
+    # compute velocity of events:
+    print('\nComputing velocity of all convective events...')
+    for event in events:
+        event.find_event_vel(Ea_r=Ea_r)
+    print('Done!')
     
     # ************************************************************************************
     # save the essential data of all events as a numpy array and write it to a file:
     data, coords_data = compile_events(events,time,area.lon_centers,area.lat_centers)
-    np.save(folder+'/data_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),data)
+    np.save(folder+'/data_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),data)
         
     # select events with rapid decrease in BT (<dTmin2h) and minimum TRMM precip (if min_TRMM_precip is set to >0)
     ind_events=np.where((data[:,8]<=dTmin2h)*(data[:,16]>=min_TRMM_precip))[0] 
     events_valid = np.asarray(events)[ind_events]
-
-    def save_events_data_netcdf4(area, events_valid, time):
-        # save a netcdf file with events:
-        # UNDER CONSTRUCTION!!! 18.06.2024
-        from netCDF4 import Dataset
-        from datetime import datetime, timedelta
-        from cftime import num2date, date2num
-        odata = Dataset(folder+'/conv_events_nxny%d%d.nc'%(nx,ny), mode='w',format='NETCDF4')
-        #delta_t = find_delta_t(time)
-        t_dim   = odata.createDimension('time', len(time) ) # time coordinate
-        t_unlim = odata.createDimension('time_unlimited', None ) # unlimited time for individual events
-        lon_dim = odata.createDimension('lon', len(area.lon_centers[:,0])) # latitude axis
-        lat_dim = odata.createDimension('lat', len(area.lat_centers[0,:])) # longitude axis
-        event_dim = odata.createDimension('event',len(events_valid)) # "event" dimension
-        datetimes = []
-        for i in range(len(time)):
-            datetimes.append(datetime(*time[i]))
-        
-        time_var = odata.createVariable('time',np.float64, ('time'))
-        time_var.standard_name='time'
-        time_var.units ='hours since 2011-01-01 00:00:00.0'
-        time_var.calendar='proleptic_gregorian'
-        time_var[:] = date2num(datetimes,units=time_var.units,calendar=time_var.calendar)
-        
-        lat = odata.createVariable('lat', np.float64, ('lat',))
-        lat.units = 'degrees_north'
-        lat.long_name = 'latitude'
-        lon = odata.createVariable('lon', np.float64, ('lon',))
-        lon.units = 'degrees_east'
-        lon.long_name = 'longitude'
-        CE_ind1   = odata.createVariable('ind1',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tmin
-        CE_ind1.units = 'id'
-        CE_ind1.long_name = 'event id BT<Tmin'
-        #CE_ind2   = odata.createVariable('ind2',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tminmin
-        #CE_ind2.units = 'id'
-        #CE_ind2.long_name = 'event id BT<Tminmin'
-        
-        CE_peakBTtrack  = odata.createVariable('peakBTtrack',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridbox with peak BT (center?)
-        CE_peakBTtrack.units = 'id'
-        CE_peakBTtrack.long_name = 'event id along track of BTpeak'
-        
-        CE_peakBT = odata.createVariable('peakBT',np.float64,('event','time_unlimited',)) # minimum BT of each event
-        CE_peakBT.units = 'K'
-        CE_peakBT.long_name = 'minimum brightness temperature over time'
-        
-        CE_DTmax  = odata.createVariable('DT',np.float64,('event',)) # maximum change in BT of each event
-        CE_DTmax.units = 'K/h'
-        CE_DTmax.long_name = 'maximum peak BT change of event'
-
-        CE_DTtrack  = odata.createVariable('DTtrack',np.int64,('time','lat','lon')) # this will be an identifier (int) for each convective system in the gridbox with max change in BT (DT) (center?)
-        CE_DTtrack.units = 'id'
-        CE_DTtrack.long_name = 'event id along track of max DT'
-
-        lat[:] = area.lat_centers[0,:]
-        lon[:] = area.lon_centers[:,0]
-        CE_DTtrack[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
-        CE_peakBTtrack[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
-        CE_ind1[:,:,:] = np.zeros((len(time),len(area.lat_centers[0,:]),len(area.lon_centers[:,0])))
-        for i_ev in range(len(events_valid)):
-            for i_t in range(len(events_valid[i_ev].t)):
-                tmp = date2num(datetime(*events_valid[i_ev].t[i_t]),units=time_var.units,calendar=time_var.calendar)
-                time_index = np.where(time_var[:]==tmp)[0][0]
-                points = np.asarray(events_valid[i_ev].coords[i_t])
-                #indices = np.ones_like(points)*np.nan
-                for i in range(points.shape[0]):#len(points[:,0])):
-                    dist1 = np.abs(lon[:] - points[i,0])
-                    dist2 = np.abs(lat[:] - points[i,1])
-                    ind1 = int(np.where(dist1==np.min(dist1))[0][0])
-                    ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-                    CE_ind1[time_index,ind2,ind1] = i_ev + 1
-                lonpeak, latpeak, minBT = events_valid[i_ev].peaks[i_t][:3]
-                dist1 = np.abs(lon[:] - lonpeak)
-                dist2 = np.abs(lat[:] - latpeak)
-                ind1 = int(np.where(dist1==np.min(dist1))[0][0])
-                ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-                CE_peakBTtrack[time_index,ind2,ind1] = i_ev + 1
-                CE_peakBT[i_ev,i_t] = minBT
-                CE_DTmax[i_ev] = events_valid[i_ev].dT
-                tmp = date2num(datetime(*events_valid[i_ev].dT_t),units=time_var.units,calendar=time_var.calendar)
-                time_index = np.where(time_var[:]==tmp)[0][0]
-                ind1, ind2 = events_valid[i_ev].dT_coord
-                CE_DTtrack[time_index,ind2,ind1] = i_ev + 1
-
-        odata.close()
     
-    save_events_data_netcdf4(area, events_valid, time)
-
-    del time
-    write_events_file_from_data(data, area, ind_events, fname=folder+'/events_nxny%d%d_Tmin%d_T2min%d.txt'%(nx,ny,T_minmin,T_min))
+    print('\nwriting csv file...')
+    #write_events_file_from_data(data, area, ind_events, fname=folder+'/events_'+case_name+'_Tmin%d_T2min%d.txt'(,T_minmin,T_min))
+    write_events_file_from_data_csv(data, area, ind_events, fname=folder+'/events_'+case_name+'_Tmin%d_T2min%d.csv'%(T_min,T_minmin))
+    print('Done!')
 
     # plot size and duration distributions:
     ssize = data[ind_events][:,17]*1e-5
     sdur  = data[ind_events][:,18]
     plot_ssize_duration_distr( ssize, sdur, folder )
     
-    print('Computing spatial and temporal distribution of events...')
+    print('\nComputing spatial and temporal distribution of events...')
     # ************************************************************************************
     # get the coordinates of the events in a particular format that is designed to determine
     # spatial distributions:
     events_coords, events_coords_data = get_events_coordinates( events_valid, ind_events )
     del events
-    del events_valid
     gc.collect()
 
     # ************************************************************************************
@@ -444,48 +343,55 @@ else:
     gc.collect()
 
     # This distribution of storms takes into account the "cumulative" size throughout the entire storm lifetime (includes all area of BT<T_min at all time steps) (probably not very useful):
-    np.save(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_total)
+    np.save(folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_total)
     
     # This contains the number of events by hour, counting events at all gridboxes with BT<Tmin during peak of event only:
-    np.save(folder+'/N_events_hh_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_hh)
+    np.save(folder+'/N_events_hh_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_hh)
     
     # This contains the number of events by month, counting events at all gridboxes with BT<Tmin during peak of event only:
-    np.save(folder+'/N_events_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_mm)
+    np.save(folder+'/N_events_mm_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_mm)
     
     # This contains the total number of events counting events at all gridboxes with BT<Tmin during peak of event only (probably more useful than N_events_total):
-    np.save(folder+'/N_events_total_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_total_Tmin)
+    np.save(folder+'/N_events_total_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_total_Tmin)
     
     # This contains the mean storm size, where individual storm sizes have been assigned to the area below BT<Tmin at event peak only
-    np.save(folder+'/mean_ssize_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_Tmin)
+    np.save(folder+'/mean_ssize_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_ssize_Tmin)
     
     # This contains the mean storm size by month, where individual storm sizes have been assigned to the area below BT<Tmin at event peak only
-    np.save(folder+'/mean_ssize_MM_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_MM_Tmin)
+    np.save(folder+'/mean_ssize_MM_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_ssize_MM_Tmin)
 
     # This contains the mean storm duration, where individual storm duration has been assigned to the area below BT<Tmin at event peak only
-    np.save(folder+'/mean_sdur_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_Tmin)
+    np.save(folder+'/mean_sdur_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_sdur_Tmin)
     
     # The following files count events only at one gridbox per event (where it reaches its minimum BT):
-    np.save(folder+'/N_events_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events)                 # all events
-    np.save(folder+'/N_events_wTRMM_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_wTRMM)          # considering TRMM precip
-    np.save(folder+'/N_events_wTRMM_sizelimit_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_wTRMM_sizelimit)# considering TRMM precip and maximum size
-    np.save(folder+'/N_events_wTRMM_mindTpos_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),N_events_wTRMM_mindTpos) # considering TRMM precip, but located at the steepest BT decrease location instead of at minimum BT location.
+    np.save(folder+'/N_events_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events)                 # all events
+    np.save(folder+'/N_events_wTRMM_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_wTRMM)          # considering TRMM precip
+    np.save(folder+'/N_events_wTRMM_sizelimit_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_wTRMM_sizelimit)# considering TRMM precip and maximum size
+    np.save(folder+'/N_events_wTRMM_mindTpos_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),N_events_wTRMM_mindTpos) # considering TRMM precip, but located at the steepest BT decrease location instead of at minimum BT location.
     
-    np.save(folder+'/mean_ssize_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_minBTpeak) 
-    np.save(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak) 
+    np.save(folder+'/mean_ssize_minBTpeak_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_ssize_minBTpeak) 
+    np.save(folder+'/mean_sdur_minBTpeak_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_sdur_minBTpeak) 
 
-    np.save(folder+'/mean_ssize_minBTpeak_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_ssize_minBTpeak_mm) 
-    np.save(folder+'/mean_sdur_minBTpeak_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min),mean_sdur_minBTpeak_mm) 
+    np.save(folder+'/mean_ssize_minBTpeak_mm_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_ssize_minBTpeak_mm) 
+    np.save(folder+'/mean_sdur_minBTpeak_mm_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin),mean_sdur_minBTpeak_mm) 
     
-    print('\n***************\nFinished!\n')
     # Make a plot similar to Fig. 1 in Hernandez-Deckers (2022):
     try:
-        T_grid  = np.load(folder+'/T_grid_nxny%d%d.npy'%(nx,ny))
-        time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
         make_sample_plot(area,N_events_total_Tmin,N_events_wTRMM,mean_ssize_minBTpeak,mean_sdur_minBTpeak,nx,ny,folder, T_grid, time)
         print('created sample spatial distribution plot!')    
     except:
         print('could not create sample spatial distribution plot!')
     del T_grid
-    del time
     gc.collect()
+
+    print('\nCreating NETCDF file... (this is the last step and may take very long! all other plots and outputs are ready)')
+    #*******************************************************************************
+    # save netcdf file with all convection events information:
+    save_events_data_netcdf4(area, events_valid, time, fname=folder+'/conv_events_'+case_name+'_Tmin%d_T2min%d.nc'%(T_min,T_minmin))
+    print('Done!')
+    del time
+    del area
+    del events_valid
+    gc.collect()
+    print('\n***************\nFinished!\n')
 

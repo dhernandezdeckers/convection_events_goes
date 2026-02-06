@@ -41,6 +41,30 @@ class Event(object):
         self.dT_t=dT_t
         self.dT_coord=dT_coord
 
+    def find_event_vel(self, Ea_r):
+        """
+        find the velocity of the system in between each pair of timesteps (assigned to the first point, so will have one timestep less)
+        based on a centroid of the 235K region (approximate with planar centroid)
+        and the mean velocity throughout time
+        """
+        import pdb
+        self.uv = np.ones((len(self.t)-1,4))*np.nan
+        x_c = np.zeros(len(self.t))
+        y_c = np.zeros(len(self.t))
+        for i in range(len(self.t)): # compute centroid at each time step
+            centroids= np.mean(np.asarray(self.coords[i]),axis=0)
+            x_c[i] = centroids[0]
+            y_c[i] = centroids[1]
+        for i in range(len(self.t)-1):
+            dy = Ea_r*(y_c[i+1]-y_c[i])*np.pi/180
+            dx = Ea_r*np.cos(0.5*(y_c[i+1]+y_c[i])*np.pi/180)*(x_c[i+1]-x_c[i])*np.pi/180
+            dtime = (dt.datetime(*self.t[i+1])-dt.datetime(*self.t[i])).total_seconds()/3600 # in hours
+            self.uv[i,:] = [x_c[i], y_c[i], dx/dtime, dy/dtime]
+        if len(self.t)>1:
+            self.uvmean = np.mean(self.uv,axis=0) # mean values: lon, lat, u, v
+        else:
+            self.uvmean = [x_c[0], y_c[0], 0, 0]
+
 def find_TRMM_val(t_in,lon,lat,path= '/media/Drive/TRMM_3HR/netcdf/'):
     """
     For each event, find the 3hr precipitation rate (in mm/hr) from TRMM

@@ -17,41 +17,56 @@ import cartopy.crs as ccrs
 # **********************************************************
 # case parameters (should match those used in read_GOES_data.py and find_convective_events.py)
 # **********************************************************
-case_name   = 'magdalena_cauca_G16'#'MM_G13'#'NWSA'#GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
-nx          = 40#38#16#80#160#80#66        # study area grid size
-ny          = 73#55#28#106#212#106#83
+param_dict = read_namelist_parameters()
+case_name       = param_dict['case_name']  
+T_min           = float(param_dict['T_min'])
+T_minmin        = float(param_dict['T_minmin'])
+dTmin2h         = float(param_dict['dTmin2h'])
+dt_max          = float(param_dict['dt_max'])
+max_sizekm2     = float(param_dict['max_sizekm2'])
+min_TRMM_precip = float(param_dict['min_TRMM_precip'])
+TRMM_data_path  = param_dict['TRMM_data_path']
+njobs           = int(param_dict['njobs'])
+UTC_offset      = -int(param_dict['UTC'])
+nx              = int(param_dict['nx'])
+ny              = int(param_dict['ny'])
 
-#**********************************************************
-# Parameters for convective event identification:
-#**********************************************************
-# threshold for brightness temperature of broader convective event area (in K):
-T_min           = 235
 
-# threshold for brightness temperature that must be found within the broader area at least at one gridbox (in K):
-T_minmin        = 210
-
-# threshold for minimun decrease in brightness temperature in 2 hours (in K)
-dTmin2h         = -50
-
-# maximum time difference in hours between two colocated systems to be considered the same event
-dt_max          = 1
-
-# minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
-# (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
-# set to >0 if yes):
-min_TRMM_precip = 0#0.1
-
-# Path where TRMM 3-hourly precipitation data (netcdf format) is located
-# (only needed if min_TRMM_precip set to >0):
-TRMM_data_path  = '/media/HD3/TRMM_3HR/netcdf/'
-
-# number of jobs for parallelization:
-njobs           = 48   
-
-# conversion from local to UTC time (hours) (only used for TRMM data):
-UTC_offset      = 5
-#**********************************************************
-#**********************************************************
+#case_name   = 'NWSA_new'#'magdalena_cauca_G16'#'MM_G13'#'NWSA'#GOES16_2018-2022_HR'#orinoco_amazonas'    # optional, for file names. 
+#nx          = 97#40#38#16#80#160#80#66        # study area grid size
+#ny          = 123#73#55#28#106#212#106#83
+#
+##**********************************************************
+## Parameters for convective event identification:
+##**********************************************************
+## threshold for brightness temperature of broader convective event area (in K):
+#T_min           = 235
+#
+## threshold for brightness temperature that must be found within the broader area at least at one gridbox (in K):
+#T_minmin        = 210
+#
+## threshold for minimun decrease in brightness temperature in 2 hours (in K)
+#dTmin2h         = -50
+#
+## maximum time difference in hours between two colocated systems to be considered the same event
+#dt_max          = 1
+#
+## minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
+## (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
+## set to >0 if yes):
+#min_TRMM_precip = 0#0.1
+#
+## Path where TRMM 3-hourly precipitation data (netcdf format) is located
+## (only needed if min_TRMM_precip set to >0):
+#TRMM_data_path  = '/media/HD3/TRMM_3HR/netcdf/'
+#
+## number of jobs for parallelization:
+#njobs           = 48   
+#
+## conversion from local to UTC time (hours) (only used for TRMM data):
+#UTC_offset      = 5
+##**********************************************************
+##**********************************************************
 print_areas = False
 
 max_sizekm2 = 300000    # convective systems larger than this will be discarded for some analyses
@@ -67,10 +82,10 @@ correct_for_data_availability = False       # if certain hours (or months) have 
 limited_area = False # True if only events from a subdomain are to be processed
 
 # this only has effect if limited_area is True:
-subdomain_slat = 4.98#6.906134
-subdomain_nlat = 8.41#9.410578
-subdomain_wlon = -74.90#-75.533732
-subdomain_elon = -73.19#-73.868053
+subdomain_slat = -5#4.98#6.906134
+subdomain_nlat = 13#8.41#9.410578
+subdomain_wlon = -80#-74.90#-75.533732
+subdomain_elon = -66#-73.19#-73.868053
 
 
 boxes=[[-78.2,-77.5,3.5,4.25],
@@ -97,9 +112,9 @@ if not os.path.exists(folder):
     print('Have you run the sript read_GOES_data.py already?')
     print("If yes, check 'case_name' and run again.")
 else:
-    T_grid  = np.load(folder+'/T_grid_nxny%d%d.npy'%(nx,ny))
-    time    = np.load(folder+'/time_nxny%d%d.npy'%(nx,ny))
-    area    = pickle.load( open(folder+'/area_nxny%d%d.p'%(nx,ny),'rb'),encoding='latin1')
+    T_grid  = np.load(folder+'/T_grid_'+case_name+'.npy')
+    time    = np.load(folder+'/time_'+case_name+'.npy')
+    area    = pickle.load( open(folder+'/area_'+case_name+'.p','rb'),encoding='latin1')
     print('gridboxes are %.2f x %.2f km\n'%(area.dx,area.dy))
 import warnings
 warnings.filterwarnings('ignore')
@@ -108,30 +123,30 @@ cmap = plt.get_cmap('jet')
 jet2 = truncate_colormap(cmap, 0.4, 1)
 
 # READ THE DATA PRODUCED BY find_convective_events_runscript.py:
-N_events_total          = np.load(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min)) 
-N_events_hh             = np.load(folder+'/N_events_hh_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events_mm             = np.load(folder+'/N_events_mm_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events_total_Tmin     = np.load(folder+'/N_events_total_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min)) 
-mean_ssize_Tmin         = np.load(folder+'/mean_ssize_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min)) 
-mean_sdur_Tmin          = np.load(folder+'/mean_sdur_Tmin_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events                = np.load(folder+'/N_events_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events_wTRMM          = np.load(folder+'/N_events_wTRMM_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events_wTRMM_sizelimit= np.load(folder+'/N_events_wTRMM_sizelimit_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-N_events_wTRMM_mindTpos = np.load(folder+'/N_events_wTRMM_mindTpos_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-data                    = np.load(folder+'/data_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
+N_events_total          = np.load(folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin)) 
+N_events_hh             = np.load(folder+'/N_events_hh_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events_mm             = np.load(folder+'/N_events_mm_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events_total_Tmin     = np.load(folder+'/N_events_total_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin)) 
+mean_ssize_Tmin         = np.load(folder+'/mean_ssize_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin)) 
+mean_sdur_Tmin          = np.load(folder+'/mean_sdur_Tmin_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events                = np.load(folder+'/N_events_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events_wTRMM          = np.load(folder+'/N_events_wTRMM_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events_wTRMM_sizelimit= np.load(folder+'/N_events_wTRMM_sizelimit_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+N_events_wTRMM_mindTpos = np.load(folder+'/N_events_wTRMM_mindTpos_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+data                    = np.load(folder+'/data_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
 data                    = data[np.where((data[:,8]<=dTmin2h)*(data[:,16]>=min_TRMM_precip))] # make sure all events have minimum threshold of dTmin2h, and min_TRMM_precip
 
 if limited_area:
     data = data[np.where((data[:,1]>=subdomain_wlon)*(data[:,1]<=subdomain_elon)*(data[:,2]>=subdomain_slat)*(data[:,2]<=subdomain_nlat))]
-    write_events_file_from_data(data, area, np.arange(data.shape[0]), folder+'/events_nxny%d%d_Tmin%d_T2min%d_subdomain_%.2f_%.2f_%.2f_%.2f.txt'%(nx,ny,T_minmin,T_min,subdomain_wlon,subdomain_elon,subdomain_slat,subdomain_nlat))
+    write_events_file_from_data(data, area, np.arange(data.shape[0]), folder+'/events_'+case_name+'_Tmin%d_T2min%d_subdomain_%.2f_%.2f_%.2f_%.2f.txt'%(T_min,T_minmin,subdomain_wlon,subdomain_elon,subdomain_slat,subdomain_nlat))
     #setup mask:
     area.mask[np.where(area.lon_centers<subdomain_wlon)]=0
     area.mask[np.where(area.lon_centers>subdomain_elon)]=0
     area.mask[np.where(area.lat_centers<subdomain_slat)]=0
     area.mask[np.where(area.lat_centers>subdomain_nlat)]=0
 
-mean_ssize_minBTpeak = np.load(folder+'/mean_ssize_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
-mean_sdur_minBTpeak = np.load(folder+'/mean_sdur_minBTpeak_nxny%d%d_Tmin%d_T2min%d.npy'%(nx,ny,T_minmin,T_min))
+mean_ssize_minBTpeak = np.load(folder+'/mean_ssize_minBTpeak_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
+mean_sdur_minBTpeak = np.load(folder+'/mean_sdur_minBTpeak_'+case_name+'_Tmin%d_T2min%d.npy'%(T_min,T_minmin))
 
 #ndays   = (dt.date(*time[-1][:3])-dt.date(*time[0][:3])).days # total number of days of the time period
 #ndays_m = [] # number of days per month in the entire time period
@@ -269,9 +284,9 @@ for i in range(24):
     ax = fig.add_subplot(1,1,1,projection=ccrs.PlateCarree())
     cs = plot_image_cartopy(area,ax,N_events_hh[i,:,:]*10/(time_factor_hh[i]*(time_period_years/24.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,4), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title='%02d:00-%02d:00'%(i,i+1),lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True) 
     plt.tight_layout()
-    plt.savefig(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_hh%02d.png'%(nx,ny,T_minmin,T_min,i),dpi=300)
+    plt.savefig(folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_hh%02d.png'%(T_min,T_minmin,i),dpi=300)
     plt.close()
-os.system('convert -delay 35 '+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_hh*.png '%(nx,ny,T_minmin,T_min)+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_hh.gif'%(nx,ny,T_minmin,T_min))
+os.system('convert -delay 35 '+folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_hh*.png '%(T_min,T_minmin)+folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_hh.gif'%(T_min,T_minmin))
 
 
 #*************************************************
@@ -336,10 +351,10 @@ for i in range(12):
     mm[np.where(area.mask==0)] = np.nan
     cs = plot_image_cartopy(area,ax,mm[:,:]*10/((time_period_years/12.)*area.dx*area.dy),vmin=0,vmax=VM, ticks=np.arange(0,VM,2), cmap='afmhot_r',label='x10$^{-1}$ km$^{-2}$yr$^{-1}$',remove_borders=True, title=months[i],lllat=lllat,urlat=urlat,lllon=lllon,urlon=urlon,topo=True)
     plt.tight_layout()
-    plt.savefig(folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm%02d.png'%(nx,ny,T_minmin,T_min,i+1),dpi=300)
+    plt.savefig(folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_mm%02d.png'%(T_min,T_minmin,i+1),dpi=300)
     plt.close()
-os.system('convert -delay 40 '+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm*.png '%(nx,ny,T_minmin,T_min)+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm.gif'%(nx,ny,T_minmin,T_min))
-os.system('rm '+folder+'/N_events_total_nxny%d%d_Tmin%d_T2min%d_mm*.png'%(nx,ny,T_minmin,T_min))
+os.system('convert -delay 40 '+folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_mm*.png '%(T_min,T_minmin)+folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_mm.gif'%(T_min,T_minmin))
+os.system('rm '+folder+'/N_events_total_'+case_name+'_Tmin%d_T2min%d_mm*.png'%(T_min,T_minmin))
 
 ## PLOT FREQUENCY OF EVENTS BY MONTH:
 fig=plt.figure(figsize=(13.,5.9))

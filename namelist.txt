@@ -1,0 +1,42 @@
+#*************************************************************
+# parameters for convection event identification and tracking
+#*************************************************************
+
+case_name = NWSA_test
+
+#*************************************************************
+#************* domain and grid parameters ********************
+nx = 97
+ny = 123
+Slat = -5.00
+Nlat = 12.75
+Wlon = -80.00
+Elon = -66.00
+t00 = 2011-01-01
+tff = 2011-12-31
+
+#*************************************************************
+#******************** others *********************************
+path = /media/Drive/GOES13/ # path where GOES files are located
+n_jobs = 24		    # number of jobs for parallelization for data gridding
+Ea_r = 6378.0		    # Earth's radius (km)
+UTC =-5			    # UTC offset for local time
+GOES_ver = 13		    # GOES version (13 or 16)
+restart_run = False	    # if initial read job was interrupted, can set to True
+#*************************************************************
+
+#*************************************************************
+#******************** following are used for find_events *****
+T_min = 235		# threshold for brightness temperature of broader convective event area (in K):
+T_minmin = 210 		# threshold for brightness temperature that must be found within the broader area at least at one gridbox (in K):
+dTmin2h = -50		# threshold for minimun decrease in brightness temperature in 2 hours (in K)
+dt_max = 1		# maximum time difference in hours between two colocated systems to be considered the same event
+njobs = 48 		# for event search parallelization
+max_sizekm2 = 300000	# Maximum size (in km^2) of convective systems 
+			#(to get a better estimate of the "mean" event size, events larger than this value are excluded for this. This value will depend on typical events of interest, domain size, etc.!)
+min_TRMM_precip = 0	# minimum 3-hourly precipitation value (in mm) according to TRMM to consider events
+			# (set to 0 if 3-hourly TRMM data is not used as criteria to identify events,
+			# set to >0 if yes)
+TRMM_data_path = /media/HD3/TRMM_3HR/netcdf/	# Path where TRMM 3-hourly precipitation data (netcdf format) is located
+						# (only needed if min_TRMM_precip set to >0)
+
