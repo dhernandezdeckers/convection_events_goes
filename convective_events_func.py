@@ -208,7 +208,7 @@ def write_events_file_from_data_csv(data, area, valid_indices, fname='event_list
     f.close()
     print('Created file '+fname+' with list of events.')
 
-def split_time_axis(events,time):
+def split_time_axis(events,time,mintimes=20):
     #look for time steps without events, in order to split the time axis and parallelize there.
     time_dtime = [dt.datetime(*time[i]) for i in range(len(time))]
     event_count = np.zeros(len(time_dtime)) # counter of events at each time step
@@ -232,6 +232,12 @@ def split_time_axis(events,time):
     diff = event_count[1:]-event_count[:-1]
     split_points = np.where((diff==-event_count[:-1])*(event_count[:-1]!=0))[0] + 1
 
+    # now make sure that each split_point is at least mintimes appart from the previous one: (to avoid too many short jobs)
+    split_points_length = split_points[1:]-split_points[:-1]
+    short_indices = np.where(split_points_length<mintimes)
+    split_points = np.delete(split_points,short_indices)
+    #**********************************************************
+    
     njobs = len(split_points)+1
     # get indices of events for each job:
     eventst0 = np.asarray([dt.datetime(*events[i].t0) for i in range(len(events))])
@@ -263,44 +269,47 @@ def fill_vars4netcdf_joblib(events,time_var,lon,lat,numtimes,split_point,prior_e
     for i_ev in range(len(events)):
         CE_peakBT.append([])
         for i_t in range(len(events[i_ev].t)):
-            tmp = date2num(dt.datetime(*events[i_ev].t[i_t]),units='hours since 2011-01-01 00:00:00.0',calendar='proleptic_gregorian')
-            time_index = np.where(time_var[:]==tmp)[0][0] - split_point
-            points = np.asarray(events[i_ev].coords[i_t])
-            #indices = np.ones_like(points)*np.nan
-            for i in range(points.shape[0]):#len(points[:,0])):
-                dist1 = np.abs(lon[:] - points[i,0])
-                dist2 = np.abs(lat[:] - points[i,1])
+            try:
+                tmp = date2num(dt.datetime(*events[i_ev].t[i_t]),units='hours since 2011-01-01 00:00:00.0',calendar='proleptic_gregorian')
+                time_index = np.where(time_var[:]==tmp)[0][0] - split_point
+                points = np.asarray(events[i_ev].coords[i_t])
+                #indices = np.ones_like(points)*np.nan
+                for i in range(points.shape[0]):#len(points[:,0])):
+                    dist1 = np.abs(lon[:] - points[i,0])
+                    dist2 = np.abs(lat[:] - points[i,1])
+                    ind1 = int(np.where(dist1==np.min(dist1))[0][0])
+                    ind2 = int(np.where(dist2==np.min(dist2))[0][0])
+                    CE_ind1[time_index,ind2,ind1] = i_ev + prior_events + 1
+                lonpeak, latpeak, minBT = events[i_ev].peaks[i_t][:3]
+                dist1 = np.abs(lon[:] - lonpeak)
+                dist2 = np.abs(lat[:] - latpeak)
                 ind1 = int(np.where(dist1==np.min(dist1))[0][0])
                 ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-                CE_ind1[time_index,ind2,ind1] = i_ev + prior_events + 1
-            lonpeak, latpeak, minBT = events[i_ev].peaks[i_t][:3]
-            dist1 = np.abs(lon[:] - lonpeak)
-            dist2 = np.abs(lat[:] - latpeak)
-            ind1 = int(np.where(dist1==np.min(dist1))[0][0])
-            ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-            CE_peakBTtrack[time_index,ind2,ind1] = i_ev + prior_events + 1
-            #CE_peakBT[i_ev,i_t] = minBT
-            CE_peakBT[i_ev].append(minBT)
-            if i_t==0:
-                CE_DTmax[i_ev] = events[i_ev].dT
-            if i_t<(len(events[i_ev].uv)):
-                x_c, y_c = events[i_ev].uv[i_t,0], events[i_ev].uv[i_t,1]
-                dist1=np.abs(lon[:]-x_c)
-                dist2=np.abs(lat[:]-y_c)
-                ind1 = int(np.where(dist1==np.min(dist1))[0][0])
-                ind2 = int(np.where(dist2==np.min(dist2))[0][0])
-                CE_u[time_index,ind2,ind1] = events[i_ev].uv[i_t,2]
-                CE_v[time_index,ind2,ind1] = events[i_ev].uv[i_t,3]
+                CE_peakBTtrack[time_index,ind2,ind1] = i_ev + prior_events + 1
+                #CE_peakBT[i_ev,i_t] = minBT
+                CE_peakBT[i_ev].append(minBT)
+                if i_t==0:
+                    CE_DTmax[i_ev] = events[i_ev].dT
+                if i_t<(len(events[i_ev].uv)):
+                    x_c, y_c = events[i_ev].uv[i_t,0], events[i_ev].uv[i_t,1]
+                    dist1=np.abs(lon[:]-x_c)
+                    dist2=np.abs(lat[:]-y_c)
+                    ind1 = int(np.where(dist1==np.min(dist1))[0][0])
+                    ind2 = int(np.where(dist2==np.min(dist2))[0][0])
+                    CE_u[time_index,ind2,ind1] = events[i_ev].uv[i_t,2]
+                    CE_v[time_index,ind2,ind1] = events[i_ev].uv[i_t,3]
 
-            tmp = date2num(dt.datetime(*events[i_ev].dT_t),units='hours since 2011-01-01 00:00:00.0',calendar='proleptic_gregorian')
-            time_index = np.where(time_var[:]==tmp)[0][0] - split_point
-            ind1, ind2 = events[i_ev].dT_coord
-            CE_DTloc[time_index,ind2,ind1] = i_ev + prior_events + 1 
+                tmp = date2num(dt.datetime(*events[i_ev].dT_t),units='hours since 2011-01-01 00:00:00.0',calendar='proleptic_gregorian')
+                time_index = np.where(time_var[:]==tmp)[0][0] - split_point
+                ind1, ind2 = events[i_ev].dT_coord
+                CE_DTloc[time_index,ind2,ind1] = i_ev + prior_events + 1
+            except Exception as e:
+                print(e)
         print('job %d, event %d/%d'%(ijob,i_ev+1,len(events)))
     return CE_ind1, CE_peakBTtrack, CE_peakBT, CE_DTmax, CE_u, CE_v, CE_DTloc
 
 
-def save_events_data_netcdf4(area, events_valid, time, fname):
+def save_events_data_netcdf4(area, events_valid, time, fname, njobs):
     """
     save a netcdf file with events
     """
@@ -324,50 +333,50 @@ def save_events_data_netcdf4(area, events_valid, time, fname):
     time_var.calendar='proleptic_gregorian'
     time_var[:] = date2num(datetimes,units=time_var.units,calendar=time_var.calendar)
     
-    lat = odata.createVariable('lat', np.float64, ('lat',))
+    lat = odata.createVariable('lat', np.float32, ('lat',))
     lat.units = 'degrees_north'
     lat.long_name = 'latitude'
     
-    lon = odata.createVariable('lon', np.float64, ('lon',))
+    lon = odata.createVariable('lon', np.float32, ('lon',))
     lon.units = 'degrees_east'
     lon.long_name = 'longitude'
 
-    CE_ind1   = odata.createVariable('ind1',np.int64,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tmin
+    CE_ind1   = odata.createVariable('ind1',np.int32,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridboxes with BT below Tmin
     CE_ind1.units = 'id'
     CE_ind1.long_name = 'event id BT<Tmin'
 
-    CE_peakBTtrack  = odata.createVariable('peakBTtrack',np.int64,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridbox with peak BT (center?)
+    CE_peakBTtrack  = odata.createVariable('peakBTtrack',np.int32,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridbox with peak BT (center?)
     CE_peakBTtrack.units = 'id'
     CE_peakBTtrack.long_name = 'event id along track of BTpeak'
     
-    CE_peakBT = odata.createVariable('peakBT',np.float64,('event','time_unlimited',),zlib=True) # minimum BT of each event
+    CE_peakBT = odata.createVariable('peakBT',np.float32,('event','time_unlimited',),zlib=True) # minimum BT of each event
     CE_peakBT.units = 'K'
     CE_peakBT.long_name = 'minimum brightness temperature over time'
     
-    CE_DTmax  = odata.createVariable('maxDT',np.float64,('event',),zlib=True) # maximum change in BT of each event
+    CE_DTmax  = odata.createVariable('maxDT',np.float32,('event',),zlib=True) # maximum change in BT of each event
     CE_DTmax.units = 'K/h'
     CE_DTmax.long_name = 'maximum peak BT change of event'
 
-    CE_DTloc  = odata.createVariable('maxDTloc',np.int64,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridbox with max change in BT (DT) (center?)
+    CE_DTloc  = odata.createVariable('maxDTloc',np.int32,('time','lat','lon'),zlib=True,fill_value=fillval) # this will be an identifier (int) for each convective system in the gridbox with max change in BT (DT) (center?)
     CE_DTloc.units = 'id'
     CE_DTloc.long_name = 'event id at location of max DT'
 
-    CE_u   = odata.createVariable('u',np.int64,('time','lat','lon'), zlib=True,fill_value=fillval) # u-component of velocity based on peak BT movement
+    CE_u   = odata.createVariable('u',np.float32,('time','lat','lon'), zlib=True,fill_value=fillval) # u-component of velocity based on peak BT movement
     CE_u.units = 'km/h'
     CE_u.long_name = 'u velocity'
     
-    CE_v   = odata.createVariable('v',np.int64,('time','lat','lon'), fill_value=fillval, zlib=True) # v-component of velocity based on peak BT movement
+    CE_v   = odata.createVariable('v',np.float32,('time','lat','lon'), fill_value=fillval, zlib=True) # v-component of velocity based on peak BT movement
     CE_v.units = 'km/h'
     CE_v.long_name = 'v velocity'
 
     lat[:] = area.lat_centers[0,:]
     lon[:] = area.lon_centers[:,0]
     
-    njobs=len(ind_events)
-    print('running %d parallel jobs...'%(njobs))
+    #n_jobs=len(ind_events)
+    print('running %d parallel jobs...'%(len(ind_events)))
     jobs=[]
     prior_events=0
-    for i in range(njobs-1):
+    for i in range(len(ind_events)-1):
         if i==0:
             jobs.append((events_valid[ind_events[i]],time_var[:],lon[:],lat[:],split_points[i],0,prior_events,i+1))
             prior_events+=len(ind_events[0])
@@ -377,7 +386,7 @@ def save_events_data_netcdf4(area, events_valid, time, fname):
 
     jobs.append((events_valid[ind_events[-1]],time_var[:],lon[:],lat[:],len(time_var)-split_points[-1],split_points[-1],prior_events,njobs))
     
-    ( out ) = Parallel(n_jobs=njobs)(delayed(fill_vars4netcdf_joblib)(*jobs[i]) for i in range(len(jobs)))
+    ( out ) = Parallel(n_jobs=njobs,pre_dispatch=njobs)(delayed(fill_vars4netcdf_joblib)(*jobs[i]) for i in range(len(jobs)))
 
     # now combine all outputs from parallel jobs to fill in the netcdf variables:
     print('putting together all parallel jobs now...')

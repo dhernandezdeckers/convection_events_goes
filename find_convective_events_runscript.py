@@ -387,7 +387,7 @@ else:
     print('\nCreating NETCDF file... (this is the last step and may take very long! all other plots and outputs are ready)')
     #*******************************************************************************
     # save netcdf file with all convection events information:
-    save_events_data_netcdf4(area, events_valid, time, fname=folder+'/conv_events_'+case_name+'_Tmin%d_T2min%d.nc'%(T_min,T_minmin))
+    save_events_data_netcdf4(area, events_valid, time, fname=folder+'/conv_events_'+case_name+'_Tmin%d_T2min%d.nc'%(T_min,T_minmin),njobs=njobs)
     print('Done!')
     del time
     del area

@@ -21,7 +21,7 @@ path = /media/Drive/GOES13/ # path where GOES files are located
 n_jobs = 24		    # number of jobs for parallelization for data gridding
 Ea_r = 6378.0		    # Earth's radius (km)
 UTC =-5			    # UTC offset for local time
-GOES_ver = 13		    # GOES version (13 or 16)
+GOES_ver = 13		    # GOES version (13, 16)
 restart_run = False	    # if initial read job was interrupted, can set to True
 #*************************************************************
 
